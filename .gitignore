@@ -1,0 +1,45 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+
+# VS Code
+.vscode/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+frontend/.env
+
+# Backend
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/**/.vs/
+backend/**/publish/
+backend/**/TestResults/
+backend/temp-build/
+appsettings.Development.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Testing
+coverage/
+*.cover
+.pytest_cache/
+TestResults/

@@ -1,0 +1,141 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Sample API",
+    "version": "1.0.0",
+    "description": "A sample API for testing PostBetter functionality",
+    "contact": {
+      "email": "api@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com/v1",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get all users",
+        "description": "Retrieve a list of all users",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new user",
+        "description": "Create a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "summary": "Get user by ID",
+        "description": "Retrieve a specific user by their ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "User ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "User ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "User's full name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User's email address"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Account creation timestamp"
+          }
+        },
+        "required": ["id", "name", "email"]
+      },
+      "UserInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "User's full name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User's email address"
+          }
+        },
+        "required": ["name", "email"]
+      }
+    }
+  }
+}

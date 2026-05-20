@@ -1,0 +1,523 @@
+<template>
+  <div class="api-tester">
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">API Tester</h1>
+      <p class="text-gray-600">Test API endpoints with a Postman-like interface</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <!-- Sidebar - Collections & History -->
+      <div class="lg:col-span-1">
+        <div class="card sticky top-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Collections</h3>
+            <button @click="showNewCollection = true" class="text-primary-600 hover:text-primary-700">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Collections List -->
+          <div class="space-y-2 mb-6 max-h-60 overflow-y-auto">
+            <div
+              v-for="collection in collections"
+              :key="collection.id"
+              class="p-2 rounded hover:bg-gray-50 cursor-pointer"
+              @click="selectedCollection = collection"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <span class="text-sm font-medium">{{ collection.name }}</span>
+                </div>
+                <span class="text-xs text-gray-500">{{ collection.requests.length }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div>
+            <h3 class="font-semibold mb-2">Recent</h3>
+            <div class="space-y-1 max-h-60 overflow-y-auto">
+              <div
+                v-for="(item, idx) in history.slice(0, 10)"
+                :key="idx"
+                class="p-2 rounded hover:bg-gray-50 cursor-pointer text-sm"
+                @click="loadFromHistory(item)"
+              >
+                <div :class="['text-xs font-semibold mb-1', getMethodClass(item.method)]">
+                  {{ item.method }}
+                </div>
+                <div class="text-xs text-gray-600 truncate">{{ item.url }}</div>
+              </div>
+            </div>
+          </div>
+
+          <button @click="clearHistory" class="btn btn-secondary w-full mt-4 text-sm">
+            Clear History
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Content - Request Builder -->
+      <div class="lg:col-span-3 space-y-6">
+        <div class="card">
+          <!-- Request URL -->
+          <div class="flex gap-2 mb-4">
+            <select v-model="request.method" class="input w-32">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+              <option value="OPTIONS">OPTIONS</option>
+            </select>
+            <input
+              v-model="request.url"
+              type="text"
+              placeholder="https://api.example.com/endpoint"
+              class="input flex-1"
+            />
+            <button @click="sendRequest" class="btn btn-primary" :disabled="loading">
+              {{ loading ? 'Sending...' : 'Send' }}
+            </button>
+            <button @click="saveToCollection" class="btn btn-secondary">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Tabs -->
+          <div class="border-b border-gray-200 mb-4">
+            <nav class="flex gap-6">
+              <button
+                v-for="tab in requestTabs"
+                :key="tab"
+                @click="activeRequestTab = tab"
+                :class="[
+                  'pb-2 border-b-2 font-medium text-sm',
+                  activeRequestTab === tab
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                ]"
+              >
+                {{ tab }}
+              </button>
+            </nav>
+          </div>
+
+          <!-- Tab Content -->
+          <div>
+            <!-- Headers Tab -->
+            <div v-show="activeRequestTab === 'Headers'" class="space-y-2">
+              <div v-for="(header, idx) in request.headers" :key="idx" class="flex gap-2">
+                <input
+                  v-model="header.key"
+                  type="text"
+                  placeholder="Key"
+                  class="input flex-1"
+                />
+                <input
+                  v-model="header.value"
+                  type="text"
+                  placeholder="Value"
+                  class="input flex-1"
+                />
+                <button @click="request.headers.splice(idx, 1)" class="btn btn-secondary">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+              <button @click="request.headers.push({ key: '', value: '' })" class="btn btn-secondary">
+                Add Header
+              </button>
+            </div>
+
+            <!-- Body Tab -->
+            <div v-show="activeRequestTab === 'Body'">
+              <div class="mb-3">
+                <select v-model="request.bodyType" class="input w-48">
+                  <option value="none">None</option>
+                  <option value="json">JSON</option>
+                  <option value="xml">XML</option>
+                  <option value="text">Text</option>
+                  <option value="form">Form Data</option>
+                </select>
+              </div>
+              <textarea
+                v-if="request.bodyType !== 'none' && request.bodyType !== 'form'"
+                v-model="request.body"
+                class="input w-full font-mono text-sm"
+                rows="10"
+                :placeholder="getBodyPlaceholder()"
+              ></textarea>
+              <div v-else-if="request.bodyType === 'form'" class="space-y-2">
+                <div v-for="(field, idx) in request.formData" :key="idx" class="flex gap-2">
+                  <input v-model="field.key" placeholder="Key" class="input flex-1" />
+                  <input v-model="field.value" placeholder="Value" class="input flex-1" />
+                  <button @click="request.formData.splice(idx, 1)" class="btn btn-secondary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <button @click="request.formData.push({ key: '', value: '' })" class="btn btn-secondary">
+                  Add Field
+                </button>
+              </div>
+            </div>
+
+            <!-- Auth Tab -->
+            <div v-show="activeRequestTab === 'Auth'">
+              <select v-model="request.authType" class="input w-48 mb-3">
+                <option value="none">No Auth</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="apikey">API Key</option>
+                <option value="basic">Basic Auth</option>
+              </select>
+
+              <div v-if="request.authType === 'bearer'" class="space-y-2">
+                <label class="block text-sm font-medium">Token</label>
+                <input v-model="request.auth.token" type="text" class="input w-full" />
+              </div>
+
+              <div v-else-if="request.authType === 'apikey'" class="space-y-2">
+                <label class="block text-sm font-medium">Key</label>
+                <input v-model="request.auth.key" type="text" class="input w-full mb-2" />
+                <label class="block text-sm font-medium">Value</label>
+                <input v-model="request.auth.value" type="text" class="input w-full" />
+              </div>
+
+              <div v-else-if="request.authType === 'basic'" class="space-y-2">
+                <label class="block text-sm font-medium">Username</label>
+                <input v-model="request.auth.username" type="text" class="input w-full mb-2" />
+                <label class="block text-sm font-medium">Password</label>
+                <input v-model="request.auth.password" type="password" class="input w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Response -->
+        <div v-if="response" class="card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Response</h3>
+            <div class="flex items-center gap-4 text-sm">
+              <span :class="['px-2 py-1 rounded font-semibold', getStatusClass(response.status)]">
+                {{ response.status }} {{ response.statusText }}
+              </span>
+              <span class="text-gray-600">{{ response.time }}ms</span>
+              <span class="text-gray-600">{{ formatSize(response.size) }}</span>
+            </div>
+          </div>
+
+          <!-- Response Tabs -->
+          <div class="border-b border-gray-200 mb-4">
+            <nav class="flex gap-6">
+              <button
+                v-for="tab in responseTabs"
+                :key="tab"
+                @click="activeResponseTab = tab"
+                :class="[
+                  'pb-2 border-b-2 font-medium text-sm',
+                  activeResponseTab === tab
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                ]"
+              >
+                {{ tab }}
+              </button>
+            </nav>
+          </div>
+
+          <!-- Response Content -->
+          <div>
+            <div v-show="activeResponseTab === 'Body'">
+              <div class="bg-gray-50 p-4 rounded overflow-x-auto">
+                <pre class="text-sm">{{ formatResponse(response.data) }}</pre>
+              </div>
+            </div>
+
+            <div v-show="activeResponseTab === 'Headers'">
+              <div class="space-y-2">
+                <div v-for="(value, key) in response.headers" :key="key" class="flex border-b pb-2">
+                  <span class="font-semibold w-48">{{ key }}:</span>
+                  <span class="text-gray-700">{{ value }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div v-if="error" class="card bg-red-50 border-red-200">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <h4 class="font-semibold text-red-900 mb-1">Request Failed</h4>
+              <p class="text-red-700 text-sm">{{ error }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New Collection Modal -->
+    <div v-if="showNewCollection" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-lg font-semibold mb-4">New Collection</h3>
+        <input
+          v-model="newCollectionName"
+          type="text"
+          placeholder="Collection Name"
+          class="input w-full mb-4"
+          @keyup.enter="createCollection"
+        />
+        <div class="flex gap-2 justify-end">
+          <button @click="showNewCollection = false" class="btn btn-secondary">Cancel</button>
+          <button @click="createCollection" class="btn btn-primary">Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive } from 'vue'
+import axios from 'axios'
+
+interface RequestHeader {
+  key: string
+  value: string
+}
+
+interface FormField {
+  key: string
+  value: string
+}
+
+interface Request {
+  method: string
+  url: string
+  headers: RequestHeader[]
+  bodyType: 'none' | 'json' | 'xml' | 'text' | 'form'
+  body: string
+  formData: FormField[]
+  authType: 'none' | 'bearer' | 'apikey' | 'basic'
+  auth: {
+    token?: string
+    key?: string
+    value?: string
+    username?: string
+    password?: string
+  }
+}
+
+interface Response {
+  status: number
+  statusText: string
+  headers: Record<string, string>
+  data: any
+  time: number
+  size: number
+}
+
+interface Collection {
+  id: string
+  name: string
+  requests: any[]
+}
+
+const request = reactive<Request>({
+  method: 'GET',
+  url: '',
+  headers: [{ key: 'Content-Type', value: 'application/json' }],
+  bodyType: 'none',
+  body: '',
+  formData: [],
+  authType: 'none',
+  auth: {}
+})
+
+const response = ref<Response | null>(null)
+const error = ref<string | null>(null)
+const loading = ref(false)
+
+const activeRequestTab = ref('Headers')
+const activeResponseTab = ref('Body')
+const requestTabs = ['Headers', 'Body', 'Auth']
+const responseTabs = ['Body', 'Headers']
+
+const collections = ref<Collection[]>([])
+const selectedCollection = ref<Collection | null>(null)
+const showNewCollection = ref(false)
+const newCollectionName = ref('')
+const history = ref<any[]>([])
+
+// Load from localStorage
+collections.value = JSON.parse(localStorage.getItem('api-tester-collections') || '[]')
+history.value = JSON.parse(localStorage.getItem('api-tester-history') || '[]')
+
+function getMethodClass(method: string): string {
+  const classes: Record<string, string> = {
+    GET: 'text-blue-600',
+    POST: 'text-green-600',
+    PUT: 'text-orange-600',
+    DELETE: 'text-red-600',
+    PATCH: 'text-purple-600'
+  }
+  return classes[method] || 'text-gray-600'
+}
+
+function getStatusClass(status: number): string {
+  if (status >= 200 && status < 300) return 'bg-green-100 text-green-700'
+  if (status >= 300 && status < 400) return 'bg-blue-100 text-blue-700'
+  if (status >= 400 && status < 500) return 'bg-orange-100 text-orange-700'
+  return 'bg-red-100 text-red-700'
+}
+
+function getBodyPlaceholder(): string {
+  const placeholders: Record<string, string> = {
+    json: '{\n  "key": "value"\n}',
+    xml: '<root>\n  <element>value</element>\n</root>',
+    text: 'Enter text here...'
+  }
+  return placeholders[request.bodyType] || ''
+}
+
+async function sendRequest() {
+  loading.value = true
+  error.value = null
+  response.value = null
+
+  try {
+    const startTime = performance.now()
+
+    // Build headers
+    const headers: Record<string, string> = {}
+    request.headers.forEach(h => {
+      if (h.key && h.value) headers[h.key] = h.value
+    })
+
+    // Add auth headers
+    if (request.authType === 'bearer' && request.auth.token) {
+      headers['Authorization'] = `Bearer ${request.auth.token}`
+    } else if (request.authType === 'apikey' && request.auth.key && request.auth.value) {
+      headers[request.auth.key] = request.auth.value
+    } else if (request.authType === 'basic' && request.auth.username && request.auth.password) {
+      const encoded = btoa(`${request.auth.username}:${request.auth.password}`)
+      headers['Authorization'] = `Basic ${encoded}`
+    }
+
+    // Build body
+    let data: any = null
+    if (request.bodyType === 'json' && request.body) {
+      data = JSON.parse(request.body)
+    } else if (request.bodyType === 'form') {
+      const formData = new FormData()
+      request.formData.forEach(f => {
+        if (f.key && f.value) formData.append(f.key, f.value)
+      })
+      data = formData
+    } else if (request.body) {
+      data = request.body
+    }
+
+    const result = await axios({
+      method: request.method,
+      url: request.url,
+      headers,
+      data
+    })
+
+    const endTime = performance.now()
+
+    response.value = {
+      status: result.status,
+      statusText: result.statusText,
+      headers: result.headers as Record<string, string>,
+      data: result.data,
+      time: Math.round(endTime - startTime),
+      size: JSON.stringify(result.data).length
+    }
+
+    // Add to history
+    addToHistory()
+  } catch (err: any) {
+    if (err.response) {
+      response.value = {
+        status: err.response.status,
+        statusText: err.response.statusText,
+        headers: err.response.headers,
+        data: err.response.data,
+        time: 0,
+        size: 0
+      }
+    } else {
+      error.value = err.message || 'Request failed'
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+function formatResponse(data: any): string {
+  if (typeof data === 'string') return data
+  return JSON.stringify(data, null, 2)
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function addToHistory() {
+  const item = {
+    method: request.method,
+    url: request.url,
+    timestamp: new Date().toISOString()
+  }
+  history.value.unshift(item)
+  if (history.value.length > 50) history.value.pop()
+  localStorage.setItem('api-tester-history', JSON.stringify(history.value))
+}
+
+function loadFromHistory(item: any) {
+  request.method = item.method
+  request.url = item.url
+}
+
+function clearHistory() {
+  history.value = []
+  localStorage.removeItem('api-tester-history')
+}
+
+function createCollection() {
+  if (!newCollectionName.value.trim()) return
+
+  const collection: Collection = {
+    id: Date.now().toString(),
+    name: newCollectionName.value,
+    requests: []
+  }
+
+  collections.value.push(collection)
+  localStorage.setItem('api-tester-collections', JSON.stringify(collections.value))
+
+  newCollectionName.value = ''
+  showNewCollection.value = false
+}
+
+function saveToCollection() {
+  // TODO: Implement save to collection with modal to select collection
+  alert('Save to collection feature coming soon!')
+}
+</script>
