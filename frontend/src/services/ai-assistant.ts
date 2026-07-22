@@ -20,11 +20,30 @@ export interface PolicyGenerationResponse {
   securityNotes: string[]
 }
 
+export type AIProvider = 'openai' | 'azure'
+
+export interface AIConfiguration {
+  provider: AIProvider
+  apiKey: string
+  /** OpenAI model name, or the Azure OpenAI / AI Foundry deployment name */
+  model: string
+  /** OpenAI-compatible base URL, or the Azure resource endpoint (https://<resource>.openai.azure.com or https://<resource>.services.ai.azure.com) */
+  baseURL: string
+  /** Azure only: api-version query parameter */
+  apiVersion: string
+}
+
+const DEFAULT_CONFIG: AIConfiguration = {
+  provider: 'openai',
+  apiKey: '',
+  model: 'gpt-4',
+  baseURL: 'https://api.openai.com/v1',
+  apiVersion: '2024-10-21'
+}
+
 class AIAssistantService {
-  private apiKey: string | null = null
-  private model: string = 'gpt-4'
-  private baseURL: string = 'https://api.openai.com/v1'
-  
+  private config: AIConfiguration = { ...DEFAULT_CONFIG }
+
   constructor() {
     this.loadConfiguration()
   }
@@ -33,26 +52,57 @@ class AIAssistantService {
     const config = localStorage.getItem('apim-ai-config')
     if (config) {
       try {
-        const aiConfig = JSON.parse(config)
-        this.apiKey = aiConfig.apiKey
-        this.model = aiConfig.model || 'gpt-4'
-        this.baseURL = aiConfig.baseURL || 'https://api.openai.com/v1'
+        const saved = JSON.parse(config)
+        this.config = {
+          provider: saved.provider === 'azure' ? 'azure' : 'openai',
+          apiKey: saved.apiKey || '',
+          model: saved.model || DEFAULT_CONFIG.model,
+          baseURL: saved.baseURL || DEFAULT_CONFIG.baseURL,
+          apiVersion: saved.apiVersion || DEFAULT_CONFIG.apiVersion
+        }
       } catch (error) {
         console.warn('Failed to load AI configuration:', error)
       }
     }
   }
 
-  public saveConfiguration(apiKey: string, model: string = 'gpt-4', baseURL: string = 'https://api.openai.com/v1') {
-    const config = { apiKey, model, baseURL }
-    localStorage.setItem('apim-ai-config', JSON.stringify(config))
-    this.apiKey = apiKey
-    this.model = model
-    this.baseURL = baseURL
+  public saveConfiguration(config: Partial<AIConfiguration>) {
+    this.config = { ...this.config, ...config }
+    localStorage.setItem('apim-ai-config', JSON.stringify(this.config))
+  }
+
+  public getConfiguration(): AIConfiguration {
+    return { ...this.config }
   }
 
   public isConfigured(): boolean {
-    return !!this.apiKey
+    return !!this.config.apiKey
+  }
+
+  private async chatCompletion(messages: AIMessage[], temperature: number, maxTokens: number): Promise<string> {
+    const { provider, apiKey, model, baseURL, apiVersion } = this.config
+    const trimmedBase = baseURL.replace(/\/+$/, '')
+
+    const url =
+      provider === 'azure'
+        ? `${trimmedBase}/openai/deployments/${model}/chat/completions?api-version=${apiVersion}`
+        : `${trimmedBase}/chat/completions`
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (provider === 'azure') {
+      headers['api-key'] = apiKey
+    } else {
+      headers['Authorization'] = `Bearer ${apiKey}`
+    }
+
+    // Azure infers the model from the deployment in the URL; sending it anyway is harmless
+    const response = await axios.post(
+      url,
+      { model, messages, temperature, max_tokens: maxTokens },
+      { headers }
+    )
+
+    return response.data.choices[0].message.content
   }
 
   private buildPolicyPrompt(request: PolicyGenerationRequest): string {
@@ -103,23 +153,8 @@ SECURITY_NOTES:
     ]
 
     try {
-      const response = await axios.post(
-        `${this.baseURL}/chat/completions`,
-        {
-          model: this.model,
-          messages,
-          temperature: 0.3, // Lower temperature for more consistent code generation
-          max_tokens: 2000
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
-
-      const content = response.data.choices[0].message.content
+      // Lower temperature for more consistent code generation
+      const content = await this.chatCompletion(messages, 0.3, 2000)
       return this.parseResponse(content)
     } catch (error: any) {
       if (error.response?.status === 401) {
@@ -189,23 +224,7 @@ Provide:
     ]
 
     try {
-      const response = await axios.post(
-        `${this.baseURL}/chat/completions`,
-        {
-          model: this.model,
-          messages,
-          temperature: 0.5,
-          max_tokens: 1000
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
-
-      return response.data.choices[0].message.content
+      return await this.chatCompletion(messages, 0.5, 1000)
     } catch (error: any) {
       throw new Error(`AI service error: ${error.message}`)
     }
@@ -236,23 +255,7 @@ Provide the improved policy XML with explanations of the changes.`
     ]
 
     try {
-      const response = await axios.post(
-        `${this.baseURL}/chat/completions`,
-        {
-          model: this.model,
-          messages,
-          temperature: 0.3,
-          max_tokens: 2000
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
-
-      return response.data.choices[0].message.content
+      return await this.chatCompletion(messages, 0.3, 2000)
     } catch (error: any) {
       throw new Error(`AI service error: ${error.message}`)
     }

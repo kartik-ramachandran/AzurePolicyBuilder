@@ -50,7 +50,7 @@
             </svg>
             <div>
               <p class="font-medium text-yellow-900">AI Assistant not configured</p>
-              <p class="text-yellow-700 mt-1">Click settings to add your OpenAI API key</p>
+              <p class="text-yellow-700 mt-1">Click settings to add your OpenAI or Azure AI Foundry API key</p>
             </div>
           </div>
         </div>
@@ -162,16 +162,86 @@
           </button>
         </div>
 
+        <!-- Explain Form -->
+        <div v-if="activeMode === 'explain'" class="space-y-3 border-t pt-3">
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-medium text-gray-700">Policy XML to explain</label>
+              <button
+                v-if="policyStore.currentPolicy"
+                @click="policyInput = policyStore.currentPolicy"
+                class="text-xs text-blue-600 hover:text-blue-700"
+              >
+                Use editor policy
+              </button>
+            </div>
+            <textarea
+              v-model="policyInput"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-xs font-mono"
+              rows="5"
+              placeholder="<policies>...</policies>"
+            ></textarea>
+          </div>
+
+          <button
+            @click="handleExplain"
+            :disabled="loading || !policyInput.trim()"
+            class="w-full bg-blue-600 text-white py-2 rounded font-medium text-sm hover:bg-blue-700 disabled:bg-gray-400"
+          >
+            {{ loading ? 'Analyzing...' : 'Explain Policy' }}
+          </button>
+        </div>
+
+        <!-- Improve Form -->
+        <div v-if="activeMode === 'improve'" class="space-y-3 border-t pt-3">
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-medium text-gray-700">Policy XML to improve</label>
+              <button
+                v-if="policyStore.currentPolicy"
+                @click="policyInput = policyStore.currentPolicy"
+                class="text-xs text-green-600 hover:text-green-700"
+              >
+                Use editor policy
+              </button>
+            </div>
+            <textarea
+              v-model="policyInput"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-xs font-mono"
+              rows="5"
+              placeholder="<policies>...</policies>"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">What would you like to improve?</label>
+            <textarea
+              v-model="improveRequirements"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              rows="2"
+              placeholder="E.g., Add better error handling and tighten security"
+            ></textarea>
+          </div>
+
+          <button
+            @click="handleImprove"
+            :disabled="loading || !policyInput.trim()"
+            class="w-full bg-green-600 text-white py-2 rounded font-medium text-sm hover:bg-green-700 disabled:bg-gray-400"
+          >
+            {{ loading ? 'Improving...' : 'Improve Policy' }}
+          </button>
+        </div>
+
         <!-- Result -->
         <div v-if="result" class="border-t pt-3 space-y-2">
           <div class="flex justify-between items-center">
             <h3 class="text-sm font-semibold text-gray-700">Result</h3>
             <button @click="copyResult" class="text-xs text-purple-600 hover:text-purple-700">
-              Copy XML
+              Copy
             </button>
           </div>
           <div class="bg-gray-50 p-3 rounded text-xs overflow-x-auto">
-            <pre>{{ result }}</pre>
+            <pre class="whitespace-pre-wrap">{{ result }}</pre>
           </div>
         </div>
 
@@ -189,35 +259,79 @@
         
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">OpenAI API Key</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+            <select v-model="settingsForm.provider" class="w-full border border-gray-300 rounded px-3 py-2" @change="onProviderChange">
+              <option value="openai">OpenAI</option>
+              <option value="azure">Azure OpenAI / AI Foundry</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
             <input
               v-model="settingsForm.apiKey"
               type="password"
-              placeholder="sk-..."
+              :placeholder="settingsForm.provider === 'azure' ? 'Azure API key' : 'sk-...'"
               class="w-full border border-gray-300 rounded px-3 py-2"
             />
             <p class="text-xs text-gray-600 mt-1">Your API key is stored locally and never sent to our servers</p>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-            <select v-model="settingsForm.model" class="w-full border border-gray-300 rounded px-3 py-2">
-              <option value="gpt-4">GPT-4</option>
-              <option value="gpt-4-turbo">GPT-4 Turbo</option>
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            </select>
-          </div>
+          <template v-if="settingsForm.provider === 'openai'">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+              <select v-model="settingsForm.model" class="w-full border border-gray-300 rounded px-3 py-2">
+                <option value="gpt-4">GPT-4</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </select>
+            </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Base URL (Optional)</label>
-            <input
-              v-model="settingsForm.baseURL"
-              type="text"
-              placeholder="https://api.openai.com/v1"
-              class="w-full border border-gray-300 rounded px-3 py-2"
-            />
-            <p class="text-xs text-gray-600 mt-1">For Azure OpenAI or custom endpoints</p>
-          </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Base URL (Optional)</label>
+              <input
+                v-model="settingsForm.baseURL"
+                type="text"
+                placeholder="https://api.openai.com/v1"
+                class="w-full border border-gray-300 rounded px-3 py-2"
+              />
+              <p class="text-xs text-gray-600 mt-1">For OpenAI-compatible endpoints</p>
+            </div>
+          </template>
+
+          <template v-else>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Azure Endpoint</label>
+              <input
+                v-model="settingsForm.baseURL"
+                type="text"
+                placeholder="https://my-resource.openai.azure.com"
+                class="w-full border border-gray-300 rounded px-3 py-2"
+              />
+              <p class="text-xs text-gray-600 mt-1">Your Azure OpenAI or AI Foundry resource endpoint</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Deployment Name</label>
+              <input
+                v-model="settingsForm.model"
+                type="text"
+                placeholder="gpt-4o"
+                class="w-full border border-gray-300 rounded px-3 py-2"
+              />
+              <p class="text-xs text-gray-600 mt-1">The name of your model deployment in Azure</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">API Version</label>
+              <input
+                v-model="settingsForm.apiVersion"
+                type="text"
+                placeholder="2024-10-21"
+                class="w-full border border-gray-300 rounded px-3 py-2"
+              />
+            </div>
+          </template>
         </div>
 
         <div class="flex gap-2 justify-end mt-6">
@@ -236,6 +350,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { aiAssistant } from '@/services/ai-assistant'
+import { usePolicyStore } from '@/stores/policy'
+
+const policyStore = usePolicyStore()
 
 const showPanel = ref(false)
 const showSettings = ref(false)
@@ -244,6 +361,8 @@ const loading = ref(false)
 const result = ref('')
 const error = ref('')
 const isConfigured = ref(false)
+const policyInput = ref('')
+const improveRequirements = ref('')
 
 const generateRequest = reactive({
   description: '',
@@ -252,21 +371,27 @@ const generateRequest = reactive({
 })
 
 const settingsForm = reactive({
+  provider: 'openai' as 'openai' | 'azure',
   apiKey: '',
   model: 'gpt-4',
-  baseURL: 'https://api.openai.com/v1'
+  baseURL: 'https://api.openai.com/v1',
+  apiVersion: '2024-10-21'
 })
 
 onMounted(() => {
   isConfigured.value = aiAssistant.isConfigured()
-  const config = localStorage.getItem('apim-ai-config')
-  if (config) {
-    const saved = JSON.parse(config)
-    settingsForm.apiKey = saved.apiKey || ''
-    settingsForm.model = saved.model || 'gpt-4'
-    settingsForm.baseURL = saved.baseURL || 'https://api.openai.com/v1'
-  }
+  Object.assign(settingsForm, aiAssistant.getConfiguration())
 })
+
+function onProviderChange() {
+  if (settingsForm.provider === 'azure') {
+    if (settingsForm.baseURL === 'https://api.openai.com/v1') settingsForm.baseURL = ''
+    if (settingsForm.model.startsWith('gpt-3') || settingsForm.model.startsWith('gpt-4')) settingsForm.model = ''
+  } else {
+    if (!settingsForm.baseURL) settingsForm.baseURL = 'https://api.openai.com/v1'
+    if (!settingsForm.model) settingsForm.model = 'gpt-4'
+  }
+}
 
 async function handleGenerate() {
   loading.value = true
@@ -283,13 +408,50 @@ async function handleGenerate() {
   }
 }
 
+async function handleExplain() {
+  loading.value = true
+  error.value = ''
+  result.value = ''
+
+  try {
+    result.value = await aiAssistant.explainPolicy(policyInput.value)
+  } catch (err: any) {
+    error.value = err.message || 'Failed to explain policy'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleImprove() {
+  loading.value = true
+  error.value = ''
+  result.value = ''
+
+  try {
+    result.value = await aiAssistant.improvePolicy(
+      policyInput.value,
+      improveRequirements.value.trim() || 'Apply security, performance, and best-practice improvements'
+    )
+  } catch (err: any) {
+    error.value = err.message || 'Failed to improve policy'
+  } finally {
+    loading.value = false
+  }
+}
+
 function saveSettings() {
-  aiAssistant.saveConfiguration(
-    settingsForm.apiKey,
-    settingsForm.model,
-    settingsForm.baseURL
-  )
-  isConfigured.value = true
+  if (settingsForm.provider === 'azure' && (!settingsForm.baseURL.trim() || !settingsForm.model.trim())) {
+    alert('Azure requires an endpoint and a deployment name')
+    return
+  }
+  aiAssistant.saveConfiguration({
+    provider: settingsForm.provider,
+    apiKey: settingsForm.apiKey,
+    model: settingsForm.model,
+    baseURL: settingsForm.baseURL,
+    apiVersion: settingsForm.apiVersion
+  })
+  isConfigured.value = aiAssistant.isConfigured()
   showSettings.value = false
 }
 

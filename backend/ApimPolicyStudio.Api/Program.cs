@@ -27,6 +27,7 @@ builder.Services.AddSingleton<PolicyTemplateService>();
 builder.Services.AddSingleton<PolicyValidationService>();
 builder.Services.AddSingleton<PolicyFragmentService>();
 builder.Services.AddSingleton<ArmTemplateService>();
+builder.Services.AddSingleton<ApimProjectGeneratorService>();
 
 var app = builder.Build();
 

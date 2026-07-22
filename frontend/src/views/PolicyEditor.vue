@@ -52,6 +52,12 @@
               </svg>
               Save as Fragment
             </button>
+            <button @click="openExpressionTester" class="btn btn-secondary w-full">
+              <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              Test C# Expression
+            </button>
           </div>
         </div>
       </div>
@@ -86,6 +92,58 @@
       </div>
     </div>
 
+    <!-- Expression Tester Modal -->
+    <div v-if="showExpressionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg p-6 max-w-2xl w-full">
+        <h3 class="text-lg font-bold mb-2">Test C# Expression</h3>
+        <p class="text-sm text-gray-600 mb-3">
+          Validate an APIM policy expression, e.g.
+          <code class="bg-gray-100 px-1 rounded">@(context.Request.Headers.GetValueOrDefault("Authorization", ""))</code>
+        </p>
+
+        <textarea
+          v-model="expressionInput"
+          class="input w-full font-mono text-sm"
+          rows="4"
+          placeholder="@(context.Request.IpAddress)"
+        ></textarea>
+
+        <div v-if="expressionResult" class="mt-3 space-y-1 max-h-48 overflow-y-auto">
+          <div
+            v-if="expressionResult.isValid"
+            class="text-green-700 bg-green-50 border border-green-200 rounded p-3 text-sm"
+          >
+            Expression compiles successfully.
+          </div>
+          <div
+            v-for="(err, i) in expressionResult.errors"
+            :key="`e-${i}`"
+            class="text-red-700 bg-red-50 border border-red-200 rounded p-2 text-sm"
+          >
+            Line {{ err.line }}: {{ err.message }}
+          </div>
+          <div
+            v-for="(warn, i) in expressionResult.warnings"
+            :key="`w-${i}`"
+            class="text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2 text-sm"
+          >
+            Line {{ warn.line }}: {{ warn.message }}
+          </div>
+        </div>
+
+        <div class="flex space-x-2 mt-4">
+          <button
+            @click="runExpressionValidation"
+            :disabled="validatingExpression || !expressionInput.trim()"
+            class="btn btn-primary flex-1"
+          >
+            {{ validatingExpression ? 'Validating...' : 'Validate' }}
+          </button>
+          <button @click="showExpressionModal = false" class="btn btn-secondary flex-1">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Save Fragment Modal -->
     <div v-if="showFragmentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div class="bg-white rounded-lg p-6 max-w-md w-full">
@@ -114,8 +172,8 @@ import { ref, computed, onMounted } from 'vue'
 import { usePolicyStore } from '@/stores/policy'
 import MonacoEditor from '@/components/MonacoEditor.vue'
 import ValidationPanel from '@/components/ValidationPanel.vue'
-import type { PolicyTemplate } from '@/types/policy'
-import { exportService } from '@/services/api'
+import type { PolicyTemplate, ValidationResult } from '@/types/policy'
+import { exportService, validationService } from '@/services/api'
 
 const policyStore = usePolicyStore()
 
@@ -142,6 +200,10 @@ const selectedCategory = ref('')
 const showFragmentModal = ref(false)
 const fragmentName = ref('')
 const fragmentDescription = ref('')
+const showExpressionModal = ref(false)
+const expressionInput = ref('')
+const expressionResult = ref<ValidationResult | null>(null)
+const validatingExpression = ref(false)
 
 const editorOptions = {
   minimap: { enabled: true },
@@ -157,6 +219,9 @@ const filteredTemplates = computed(() => {
 })
 
 onMounted(async () => {
+  if (policyStore.currentPolicy) {
+    policyXml.value = policyStore.currentPolicy
+  }
   await policyStore.loadTemplates()
 })
 
@@ -225,6 +290,27 @@ async function confirmSaveFragment() {
     alert('Fragment saved successfully!')
   } catch (e) {
     alert('Failed to save fragment')
+  }
+}
+
+function openExpressionTester() {
+  showExpressionModal.value = true
+  expressionResult.value = null
+}
+
+async function runExpressionValidation() {
+  validatingExpression.value = true
+  expressionResult.value = null
+  try {
+    expressionResult.value = await validationService.validateExpression(expressionInput.value)
+  } catch (e) {
+    expressionResult.value = {
+      isValid: false,
+      errors: [{ line: 0, column: 0, message: 'Validation service unavailable', severity: 'error' }],
+      warnings: []
+    }
+  } finally {
+    validatingExpression.value = false
   }
 }
 

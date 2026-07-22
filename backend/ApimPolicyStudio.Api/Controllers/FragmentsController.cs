@@ -56,6 +56,17 @@ public class FragmentsController : ControllerBase
         return Ok(fragment);
     }
 
+    [HttpPost("{id}/increment-usage")]
+    public async Task<ActionResult<PolicyFragment>> IncrementUsage(string id)
+    {
+        var fragment = await _fragmentService.IncrementUsageAsync(id);
+        if (fragment == null)
+        {
+            return NotFound();
+        }
+        return Ok(fragment);
+    }
+
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteFragment(string id)
     {

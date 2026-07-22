@@ -10,9 +10,9 @@ public class ProjectController : ControllerBase
 {
     private readonly ApimProjectGeneratorService _projectGenerator;
 
-    public ProjectController()
+    public ProjectController(ApimProjectGeneratorService projectGenerator)
     {
-        _projectGenerator = new ApimProjectGeneratorService();
+        _projectGenerator = projectGenerator;
     }
 
     [HttpPost("generate")]

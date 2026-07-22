@@ -21,7 +21,7 @@ A comprehensive Azure API Management development platform that combines policy m
 
 ### 1️⃣ Core APIM Policy Features
 
-#### Policy Editor (`/`)
+#### Policy Editor (`/editor`)
 - Monaco Editor (VS Code engine) with XML syntax highlighting
 - Real-time validation (XML + C# expressions)
 - Template insertion from library
@@ -30,31 +30,30 @@ A comprehensive Azure API Management development platform that combines policy m
 - Copy to clipboard
 
 #### Template Library (`/templates`)
-- 16+ production-ready templates:
-  - Rate limiting (by key, by subscription)
+- 16 production-ready templates:
+  - Rate limiting by key
   - JWT validation with Azure AD
   - CORS configuration
+  - Set headers
   - Response caching (lookup + store)
   - Backend service routing
   - Retry policies
+  - Response body transformation
+  - Set status code
   - Mock responses
-  - Error handling (on-error-return)
+  - Error handling (return-response)
   - IP filtering
   - Quota management
   - Azure OpenAI token limiting
   - Request tracing
-  - Set headers
-  - Rewrite URLs
-  - Set backend service
-  - Validate parameters
 
 #### Fragment Manager (`/fragments`)
-- Create reusable policy fragments
-- Version tracking
+- Create and edit reusable policy fragments (Monaco editor modal)
+- Version tracking (auto-incremented on XML changes)
 - Usage count analytics
 - CRUD operations (Create, Read, Update, Delete)
-- Search and filter
-- Import/export
+- Use fragments directly in the Policy Editor
+- Copy fragment XML to clipboard
 
 ### 2️⃣ OpenAPI Toolkit
 
@@ -238,14 +237,7 @@ APIMPolicyBuilder/
 │   ├── DEVELOPMENT.md
 │   └── QUICK_REFERENCE.md
 │
-├── webapp/                             # Original files (reference)
-│   ├── js/
-│   │   ├── script.js                  # 3331 lines
-│   │   ├── apibuilder.js              # 1917 lines
-│   │   ├── valdoc.js                  # 830 lines
-│   │   └── ai-service.js              # 385 lines
-│   └── data/
-│       └── sample-api.json
+├── sample-api.json                     # Sample OpenAPI spec for testing
 │
 ├── .vscode/
 │   ├── launch.json                     # Debug configuration
@@ -385,7 +377,7 @@ BACKEND:
 **APIM Policy Studio** is a complete, modern, production-ready platform for Azure API Management development. It combines the power of policy management, OpenAPI tools, API testing, and AI assistance into a single integrated application.
 
 **Built with**: Vue 3, TypeScript, .NET 8, Monaco Editor, Tailwind CSS, OpenAI  
-**Features**: 6 views, 3 components, 20+ backend endpoints, 16+ policy templates  
+**Features**: 7 views, 3 components, 15 backend endpoints, 16 policy templates  
 **Status**: ✅ Ready for use  
 **Next**: Test, deploy, and extend!
 

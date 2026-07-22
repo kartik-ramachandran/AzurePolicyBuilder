@@ -1,41 +1,101 @@
 <template>
-  <div class="project-builder min-h-[calc(100vh-7rem)] overflow-hidden rounded-[1.5rem] border border-sky-100 bg-white text-slate-950 shadow-xl shadow-sky-100/80">
-    <div class="relative isolate min-h-[calc(100vh-7rem)] bg-gradient-to-br from-white via-sky-50 to-blue-100">
-      <div class="absolute inset-0 -z-10 opacity-60 [background-image:linear-gradient(rgba(14,165,233,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,.12)_1px,transparent_1px)] [background-size:38px_38px]"></div>
+  <div class="project-builder min-h-[calc(100vh-7rem)] text-slate-950">
+    <div :class="['relative isolate min-h-[calc(100vh-7rem)] overflow-hidden', hasAnalyzed ? 'review-shell' : 'welcome-surface']">
 
-      <header class="border-b border-sky-100 bg-white/90 px-5 py-5 shadow-sm backdrop-blur-xl sm:px-8">
-        <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div class="flex items-center gap-4">
-            <div class="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-sky-300 to-blue-600 text-white shadow-lg shadow-sky-300/40">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h10" />
+      <main v-if="!hasAnalyzed" class="welcome-stage">
+        <section class="welcome-copy">
+          <div class="welcome-kicker">
+            <span class="welcome-kicker__dot"></span>
+            From contract to gateway
+          </div>
+          <h1 class="welcome-title">
+            Shape your APIs.<br />
+            <span>Ship with confidence.</span>
+          </h1>
+          <p class="welcome-description">
+            Turn OpenAPI contracts into a clean, reviewable APIM package—without losing control of what gets deployed.
+          </p>
+
+          <div class="welcome-actions">
+            <button class="welcome-primary" @click="triggerFilePicker">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0 4 4m-4-4-4 4M4 20h16" />
               </svg>
-            </div>
-            <div>
-              <p class="text-xs font-black uppercase tracking-[0.35em] text-sky-500">APIM Import Console</p>
-              <h1 class="text-3xl font-black text-slate-950 sm:text-4xl">{{ projectName }}</h1>
-            </div>
+              Choose contract
+            </button>
+            <button class="welcome-secondary" @click="loadSample">
+              Explore a sample
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" /></svg>
+            </button>
           </div>
 
-          <div class="grid grid-cols-3 gap-3 text-center sm:flex">
-            <div class="rounded-2xl border border-sky-100 bg-sky-50 px-5 py-3 shadow-sm">
-              <div class="text-2xl font-black text-blue-700">{{ discoveredApis.length }}</div>
-              <div class="text-xs font-semibold text-slate-500">Detected</div>
+          <button class="mt-4 self-start text-sm font-bold text-blue-700 underline decoration-sky-300 underline-offset-4 hover:text-blue-800" @click="startManually">
+            No contract? Compose the package manually →
+          </button>
+
+          <div class="welcome-capabilities">
+            <span v-for="item in ['OpenAPI 3.x', 'Swagger 2.0', 'Selective import']" :key="item">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12 4 4L19 6" /></svg>
+              {{ item }}
+            </span>
+          </div>
+        </section>
+
+        <section class="contract-card">
+          <div class="contract-card__header">
+            <div>
+              <p>Contract input</p>
+              <h2>Import OpenAPI</h2>
             </div>
-            <div class="rounded-2xl border border-sky-100 bg-blue-50 px-5 py-3 shadow-sm">
-              <div class="text-2xl font-black text-blue-700">{{ selectedDiscoveryCount }}</div>
-              <div class="text-xs font-semibold text-slate-500">Selected</div>
+            <span class="contract-format"><i></i> JSON</span>
+          </div>
+
+          <label class="contract-dropzone" @dragover.prevent @drop.prevent="handleDrop">
+            <input class="hidden" type="file" accept=".json,application/json" multiple @change="handleFileUpload" />
+            <span class="contract-dropzone__icon">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 16V4m0 0 4 4m-4-4-4 4M4 20h16" /></svg>
+            </span>
+            <span class="min-w-0 flex-1">
+              <strong>{{ sourceName || 'Drop your contract here' }}</strong>
+              <small>{{ sourceName ? 'Ready to inspect' : 'or click to browse · multiple files supported' }}</small>
+            </span>
+            <span class="contract-browse">Browse</span>
+          </label>
+
+          <div class="contract-code">
+            <div class="contract-code__bar">
+              <span><i></i><i></i><i></i></span>
+              <span>openapi.json</span>
+              <span>{{ rawSpec ? 'Loaded' : 'Paste JSON' }}</span>
             </div>
-            <div class="rounded-2xl border border-sky-100 bg-cyan-50 px-5 py-3 shadow-sm">
-              <div class="text-2xl font-black text-blue-700">{{ selectedOperationCount }}</div>
-              <div class="text-xs font-semibold text-slate-500">Selected Ops</div>
-            </div>
+            <textarea
+              v-model="rawSpec"
+              spellcheck="false"
+              placeholder="{&#10;  &quot;openapi&quot;: &quot;3.0.1&quot;,&#10;  &quot;info&quot;: { ... }&#10;}"
+            ></textarea>
+          </div>
+
+          <p v-if="parseError" class="contract-error">{{ parseError }}</p>
+
+          <div class="contract-card__footer">
+            <span>{{ rawSpec ? 'Contract ready for analysis' : 'Paste or upload a JSON contract' }}</span>
+            <button :disabled="!rawSpec.trim()" @click="analyzeSpec">
+              Analyze contract
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" /></svg>
+            </button>
+          </div>
+        </section>
+
+        <div class="workflow-line">
+          <div v-for="(step, index) in pipelineSteps" :key="step" class="workflow-step">
+            <span>{{ index + 1 }}</span>
+            <div><strong>{{ step }}</strong><small>{{ ['Validate the source', 'Map APIs & operations', 'Approve the scope', 'Export for Azure'][index] }}</small></div>
           </div>
         </div>
-      </header>
+      </main>
 
-      <main class="grid min-h-[calc(100vh-14rem)] grid-cols-1 lg:grid-cols-[23rem_minmax(0,1fr)]">
-        <aside class="border-b border-sky-100 bg-white/65 p-5 backdrop-blur-xl lg:border-b-0 lg:border-r lg:p-6">
+      <main v-else class="min-h-[calc(100vh-8rem)]">
+        <aside class="hidden">
           <div class="space-y-5">
             <section class="rounded-3xl border border-sky-100 bg-white p-5 shadow-lg shadow-sky-100/80">
               <div class="mb-4 flex items-center justify-between">
@@ -83,174 +143,175 @@
               <p class="text-xs font-black uppercase tracking-[0.25em] text-blue-500">Package</p>
               <input v-model="projectName" class="mt-3 w-full rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-black text-slate-950 outline-none ring-sky-300/30 focus:ring-4" />
               <textarea v-model="projectDescription" rows="3" class="mt-3 w-full resize-none rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700 outline-none ring-sky-300/30 focus:ring-4"></textarea>
-              <p class="mt-3 text-xs font-semibold text-slate-500">{{ draftStatus }}</p>
+              <div class="mt-3 flex items-center justify-between gap-2">
+                <p class="text-xs font-semibold text-slate-500">{{ draftStatus }}</p>
+                <button
+                  class="shrink-0 text-xs font-black text-rose-500 transition hover:text-rose-600"
+                  title="Remove the locally cached draft and reset the builder"
+                  @click="clearDraft"
+                >
+                  Clear draft
+                </button>
+              </div>
             </section>
           </div>
         </aside>
 
-        <section class="overflow-y-auto p-5 sm:p-8">
-          <div v-if="!hasAnalyzed" class="mx-auto grid max-w-6xl gap-8 py-6 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
-            <div>
-              <p class="mb-4 inline-flex rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-black text-blue-700 shadow-sm">Swagger in. APIM package out.</p>
-              <h2 class="max-w-4xl text-5xl font-black leading-none text-slate-950 sm:text-7xl">
-                Confirm exactly what lands in APIM.
-              </h2>
-              <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-700">
-                Read one or many swagger/OpenAPI JSON files, extract APIs, paths, operations, service URL, schema count, then select the exact APIs and operations that should move into APIM.
-              </p>
-              <div class="mt-8 flex flex-wrap gap-3">
-                <button class="rounded-2xl bg-blue-600 px-5 py-3 font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700" @click="triggerFilePicker">
-                  Import JSON
-                </button>
-                <button class="rounded-2xl border border-sky-200 bg-white px-5 py-3 font-black text-blue-700 shadow-sm hover:bg-sky-50" @click="loadSample">
-                  Preview Sample
-                </button>
+        <section class="review-content overflow-y-auto">
+          <div v-if="builderMode === 'review'" class="review-page">
+            <header class="review-page__header">
+              <div>
+                <div class="review-eyebrow"><span></span> Import review</div>
+                <h1>Choose what moves forward.</h1>
+                <p>Review the discovered APIs and fine-tune the operations before they enter your APIM package.</p>
               </div>
+              <div class="review-progress" aria-label="Import progress">
+                <span class="is-complete"><i>1</i> Contract</span>
+                <b></b>
+                <span class="is-current"><i>2</i> Review</span>
+                <b></b>
+                <span><i>3</i> Configure</span>
+                <b></b>
+                <span><i>4</i> Export</span>
+              </div>
+            </header>
+
+            <div class="source-ribbon">
+              <input class="hidden" type="file" accept=".json,application/json" multiple @change="handleFileUpload" />
+              <span class="source-ribbon__icon">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 3h5l5 5v13H6V3h2Zm5 0v5h5M9 13h6m-6 4h4" /></svg>
+              </span>
+              <span class="min-w-0 flex-1">
+                <strong>{{ discoveredApis[0]?.sourceName || sourceName }}</strong>
+                <small>{{ discoveredApis.length }} API · {{ totalOperationCount }} operations discovered</small>
+              </span>
+              <span class="source-ribbon__status"><i></i> Parsed successfully</span>
+              <button @click="triggerFilePicker">Add contract</button>
             </div>
 
-            <div class="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-2xl shadow-sky-100">
-              <div class="rounded-[1.5rem] bg-gradient-to-br from-sky-50 to-blue-50 p-5">
-                <div class="mb-5 flex items-center justify-between">
-                  <span class="text-sm font-black text-slate-950">Import pipeline</span>
-                  <span class="rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white">LIVE</span>
-                </div>
-                <div class="space-y-3">
-                  <div v-for="step in pipelineSteps" :key="step" class="flex items-center gap-3 rounded-2xl border border-sky-100 bg-white px-4 py-4 shadow-sm">
-                    <span class="grid h-9 w-9 place-items-center rounded-xl bg-sky-300 text-sm font-black text-blue-950">{{ step.charAt(0) }}</span>
-                    <span class="font-black text-slate-800">{{ step }}</span>
+            <div class="review-layout">
+              <section class="api-review-list">
+                <div class="api-review-list__heading">
+                  <div>
+                    <h2>APIs in scope</h2>
+                    <p>{{ selectedDiscoveryCount }} of {{ discoveredApis.length }} selected</p>
                   </div>
+                  <button @click="openSelectionModal()">
+                    Review all operations
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" /></svg>
+                  </button>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          <div v-else-if="builderMode === 'review'" class="mx-auto max-w-7xl space-y-6">
-            <div class="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
-              <div class="min-w-0">
-                <p class="text-xs font-black uppercase tracking-[0.35em] text-blue-500">Confirmation</p>
-                <h2 class="mt-2 text-4xl font-black text-slate-950">Choose APIs to import</h2>
-                <p class="mt-3 max-w-3xl text-slate-600">{{ discoverySummary }}</p>
-              </div>
-              <div class="flex shrink-0 flex-col gap-3 sm:flex-row sm:flex-nowrap sm:items-center">
-                <button class="whitespace-nowrap rounded-2xl border border-sky-200 bg-white px-5 py-3 font-black text-blue-700 hover:bg-sky-50" @click="openSelectionModal()">
-                  Review API Selection
-                </button>
-                <button class="whitespace-nowrap rounded-2xl border border-rose-200 bg-white px-5 py-3 font-black text-rose-600 hover:bg-rose-50" @click="resetImports">
-                  Reset Imports
-                </button>
-                <button class="whitespace-nowrap rounded-2xl bg-blue-600 px-6 py-3 font-black text-white shadow-lg shadow-blue-200 disabled:cursor-not-allowed disabled:opacity-40" :disabled="selectedDiscoveryCount === 0" @click="confirmImport">
-                  Confirm Import
-                </button>
-              </div>
-            </div>
-
-            <div class="grid gap-4 xl:grid-cols-2">
-              <article
-                v-for="api in discoveredApis"
-                :key="api.id"
-                :class="[
-                  'rounded-[1.75rem] border p-5 shadow-lg',
-                  api.selected ? 'border-blue-200 bg-white shadow-blue-100' : 'border-sky-100 bg-white/75 shadow-sky-100'
-                ]"
-              >
-                <div class="flex items-start justify-between gap-4">
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white">{{ api.format }}</span>
-                      <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-blue-700">{{ api.version }}</span>
-                      <span class="max-w-[14rem] truncate rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ api.sourceName }}</span>
+                <article
+                  v-for="api in discoveredApis"
+                  :key="api.id"
+                  :class="['api-review-card', { 'is-disabled': !api.selected }]"
+                >
+                  <div class="api-review-card__main">
+                    <div class="api-monogram">{{ api.displayName.slice(0, 2).toUpperCase() }}</div>
+                    <div class="min-w-0 flex-1">
+                      <div class="api-review-card__meta">
+                        <span>{{ api.format }}</span>
+                        <span>v{{ api.version }}</span>
+                        <span>{{ api.path || '/' }}</span>
+                      </div>
+                      <h3>{{ api.displayName }}</h3>
+                      <p>{{ api.description || 'No description was supplied in this contract.' }}</p>
                     </div>
-                    <h3 class="mt-4 truncate text-2xl font-black text-slate-950">{{ api.displayName }}</h3>
-                    <p class="mt-2 text-sm text-slate-600">{{ api.description || 'No description provided.' }}</p>
+                    <label class="sleek-switch" title="Include this API">
+                      <input v-model="api.selected" type="checkbox" @change="toggleApiSelection(api)" />
+                      <span></span>
+                    </label>
                   </div>
-                  <label class="relative inline-flex cursor-pointer items-center">
-                    <input v-model="api.selected" type="checkbox" class="peer sr-only" @change="toggleApiSelection(api)" />
-                    <span class="h-8 w-14 rounded-full bg-slate-200 after:absolute after:left-1 after:top-1 after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow after:transition peer-checked:bg-blue-600 peer-checked:after:translate-x-6"></span>
-                  </label>
-                </div>
 
-                <div class="mt-5 grid grid-cols-3 gap-3">
-                  <div class="rounded-2xl bg-sky-50 p-3">
-                    <div class="text-xl font-black text-blue-700">{{ selectedApiOperations(api).length }}/{{ api.operations.length }}</div>
-                    <div class="text-xs font-semibold text-slate-500">Ops selected</div>
-                  </div>
-                  <div class="rounded-2xl bg-sky-50 p-3">
-                    <div class="truncate text-xl font-black text-blue-700">{{ api.path || '/' }}</div>
-                    <div class="text-xs font-semibold text-slate-500">APIM path</div>
-                  </div>
-                  <div class="rounded-2xl bg-sky-50 p-3">
-                    <div class="text-xl font-black text-blue-700">{{ api.schemaCount }}</div>
-                    <div class="text-xs font-semibold text-slate-500">Schemas</div>
-                  </div>
-                </div>
-
-                <div class="mt-5 rounded-2xl border border-sky-100 bg-sky-50 p-4">
-                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="text-sm font-semibold text-slate-600">
-                      {{ selectedApiOperations(api).length }} of {{ api.operations.length }} operations selected for import.
-                    </p>
-                    <button class="whitespace-nowrap rounded-xl bg-blue-600 px-5 py-2 text-sm font-black text-white shadow-md shadow-blue-100 hover:bg-blue-700" @click="openSelectionModal(api.id)">
-                      Select Operations
+                  <div class="api-review-card__footer">
+                    <div class="api-inline-stats">
+                      <span><strong>{{ selectedApiOperations(api).length }}</strong>/{{ api.operations.length }} operations</span>
+                      <i></i>
+                      <span><strong>{{ api.schemaCount }}</strong> schemas</span>
+                    </div>
+                    <button @click="openSelectionModal(api.id)">
+                      Configure operations
+                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" /></svg>
                     </button>
                   </div>
-                </div>
-              </article>
-            </div>
+                </article>
+              </section>
 
-            <section v-if="project.apis.length" class="rounded-[1.75rem] border border-cyan-200 bg-cyan-50 p-5 shadow-lg shadow-cyan-100">
-              <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <p class="text-xs font-black uppercase tracking-[0.3em] text-cyan-700">Ready</p>
-                  <h3 class="mt-2 text-2xl font-black text-slate-950">{{ project.apis.length }} API{{ project.apis.length === 1 ? '' : 's' }} staged for APIM</h3>
+              <aside class="import-summary">
+                <div class="import-summary__glow"></div>
+                <p class="import-summary__eyebrow">Import scope</p>
+                <div class="import-summary__count">
+                  <strong>{{ selectedOperationCount }}</strong>
+                  <span>operations ready</span>
                 </div>
-                <button class="rounded-2xl bg-cyan-500 px-6 py-3 font-black text-white shadow-lg shadow-cyan-200 hover:bg-cyan-600" @click="generateProject">
-                  Generate Package
+                <div class="import-summary__progress"><span :style="{ width: `${selectionPercentage}%` }"></span></div>
+                <p class="import-summary__caption">{{ selectionPercentage }}% of discovered operations selected</p>
+
+                <dl>
+                  <div><dt>APIs</dt><dd>{{ selectedDiscoveryCount }} / {{ discoveredApis.length }}</dd></div>
+                  <div><dt>Operations</dt><dd>{{ selectedOperationCount }} / {{ totalOperationCount }}</dd></div>
+                  <div><dt>Schemas</dt><dd>{{ selectedSchemaCount }}</dd></div>
+                </dl>
+
+                <button class="import-summary__primary" :disabled="selectedDiscoveryCount === 0" @click="confirmImport">
+                  Continue to configure
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" /></svg>
                 </button>
-              </div>
-            </section>
+                <button class="import-summary__secondary" @click="openSelectionModal()">Fine-tune selection</button>
+                <button class="import-summary__reset" @click="resetImports">Start over with a new contract</button>
+              </aside>
+            </div>
           </div>
 
-          <div v-else class="mx-auto max-w-7xl space-y-6">
+          <div v-else class="builder-config mx-auto max-w-7xl space-y-6">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <p class="text-xs font-black uppercase tracking-[0.35em] text-blue-500">APIM Builder</p>
-                <h2 class="mt-2 text-4xl font-black text-slate-950">Configure APIs for APIM</h2>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-600">APIM Builder</p>
+                <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">Configure APIs for APIM</h2>
               </div>
               <div class="flex flex-row items-center gap-3">
-                <button class="rounded-2xl border border-sky-200 bg-white px-5 py-3 font-black text-blue-700 hover:bg-sky-50" @click="builderMode = 'review'">
+                <button v-if="discoveredApis.length" class="builder-action builder-action--back" @click="builderMode = 'review'">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6" /></svg>
                   Back to Selection
                 </button>
-                <button class="rounded-2xl bg-blue-600 px-6 py-3 font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700" @click="generateProject">
+                <button class="builder-action builder-action--secondary" @click="openAddModal('api')">
+                  + Add API
+                </button>
+                <button class="builder-action builder-action--primary" @click="generateProject">
                   Generate Package
                 </button>
               </div>
             </div>
 
             <div class="grid gap-5">
-              <article v-for="(api, apiIndex) in project.apis" :key="api.name + apiIndex" class="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-lg shadow-sky-100">
+              <article v-for="(api, apiIndex) in project.apis" class="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
                 <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p class="text-xs font-black uppercase tracking-[0.25em] text-sky-500">APIM API</p>
-                    <h3 class="mt-1 text-2xl font-black text-slate-950">{{ api.displayName || api.name || 'Untitled API' }}</h3>
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-600">APIM API</p>
+                    <h3 class="mt-1 text-xl font-bold tracking-tight text-slate-950">{{ api.displayName || api.name || 'Untitled API' }}</h3>
                   </div>
-                  <div class="flex flex-wrap gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
                     <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">{{ api.operations.length }} operations</span>
                     <span class="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700">{{ api.specificationFormat }}</span>
+                    <button class="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-600 hover:bg-rose-100" title="Remove this API from the package" @click="removeApi(apiIndex)">
+                      Remove
+                    </button>
                   </div>
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-3">
                   <label class="space-y-2">
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">APIM Name</span>
-                    <input v-model="api.name" class="w-full rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-black text-slate-950 outline-none ring-sky-300/30 focus:ring-4" />
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">APIM Name</span>
+                    <input v-model="api.name" class="w-full rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm font-medium text-slate-950 outline-none ring-sky-300/30 focus:ring-4" />
                   </label>
                   <label class="space-y-2">
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Display Name</span>
-                    <input v-model="api.displayName" class="w-full rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-black text-slate-950 outline-none ring-sky-300/30 focus:ring-4" />
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Display Name</span>
+                    <input v-model="api.displayName" class="w-full rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm font-medium text-slate-950 outline-none ring-sky-300/30 focus:ring-4" />
                   </label>
                   <label class="space-y-2">
-                    <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">APIM Path</span>
-                    <input v-model="api.path" class="w-full rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-black text-slate-950 outline-none ring-sky-300/30 focus:ring-4" />
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">APIM Path</span>
+                    <input v-model="api.path" class="w-full rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm font-medium text-slate-950 outline-none ring-sky-300/30 focus:ring-4" />
                   </label>
                   <label class="space-y-2 lg:col-span-3">
                     <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Backend Service URL</span>
@@ -299,10 +360,15 @@
                 <div class="mt-6 rounded-3xl border border-sky-100 bg-sky-50 p-4">
                   <div class="mb-3 flex items-center justify-between">
                     <h4 class="text-lg font-black text-slate-950">Operations</h4>
-                    <span class="text-sm font-black text-blue-700">{{ api.operations.length }} included</span>
+                    <div class="flex items-center gap-3">
+                      <span class="text-sm font-black text-blue-700">{{ api.operations.length }} included</span>
+                      <button class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white hover:bg-blue-700" @click="addOperation(api)">
+                        + Add operation
+                      </button>
+                    </div>
                   </div>
                   <div class="space-y-2">
-                    <div v-for="operation in api.operations" :key="operation.name" class="grid gap-3 rounded-2xl border border-sky-100 bg-white p-3 md:grid-cols-[7rem_minmax(0,1fr)_minmax(0,1fr)]">
+                    <div v-for="(operation, operationIndex) in api.operations" :key="operation.name + operationIndex" class="grid gap-3 rounded-2xl border border-sky-100 bg-white p-3 md:grid-cols-[7rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
                       <select v-model="operation.method" class="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-black text-blue-700 outline-none">
                         <option>GET</option>
                         <option>POST</option>
@@ -314,7 +380,13 @@
                       </select>
                       <input v-model="operation.urlTemplate" class="min-w-0 rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-sky-300" />
                       <input v-model="operation.displayName" class="min-w-0 rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-300" />
-                      <textarea v-model="operation.policy" rows="4" placeholder="Operation policy XML, optional" class="md:col-span-3 w-full resize-y rounded-xl border border-sky-100 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:ring-2 focus:ring-sky-300"></textarea>
+                      <button class="grid h-9 w-9 place-items-center self-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Remove operation" @click="api.operations.splice(operationIndex, 1)">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                      <textarea v-model="operation.policy" rows="4" placeholder="Operation policy XML, optional" class="md:col-span-4 w-full resize-y rounded-xl border border-sky-100 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:ring-2 focus:ring-sky-300"></textarea>
+                    </div>
+                    <div v-if="api.operations.length === 0" class="rounded-2xl border border-dashed border-sky-200 bg-white px-4 py-6 text-center text-sm font-semibold text-slate-500">
+                      No operations yet. Add at least one so this API is usable in APIM.
                     </div>
                   </div>
                 </div>
@@ -324,11 +396,44 @@
             <div class="grid gap-5 xl:grid-cols-3">
               <section class="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-lg shadow-sky-100">
                 <div class="mb-4 flex items-center justify-between">
+                  <h3 class="text-xl font-black text-slate-950">Backends</h3>
+                  <button class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white" @click="openAddModal('backend')">Add</button>
+                </div>
+                <div class="space-y-3">
+                  <div v-for="(backend, backendIndex) in project.backends" :key="backendIndex" class="space-y-2 rounded-2xl bg-sky-50 p-3">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-black uppercase tracking-[0.12em] text-sky-600">Backend</span>
+                      <button class="text-slate-400 hover:text-rose-600" title="Remove backend" @click="project.backends.splice(backendIndex, 1)">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    <input v-model="backend.name" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm font-black" placeholder="backend-name" />
+                    <input v-model="backend.title" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm" placeholder="Title" />
+                    <input v-model="backend.url" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm" placeholder="https://backend.example.com" />
+                    <select v-model="backend.protocol" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm">
+                      <option value="https">https</option>
+                      <option value="http">http</option>
+                    </select>
+                  </div>
+                  <p v-if="project.backends.length === 0" class="rounded-xl border border-dashed border-sky-200 px-3 py-4 text-center text-xs font-semibold text-slate-500">
+                    No backends yet.
+                  </p>
+                </div>
+              </section>
+
+              <section class="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-lg shadow-sky-100">
+                <div class="mb-4 flex items-center justify-between">
                   <h3 class="text-xl font-black text-slate-950">Products</h3>
                   <button class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white" @click="openAddModal('product')">Add</button>
                 </div>
                 <div class="space-y-3">
-                  <div v-for="product in project.products" :key="product.name" class="space-y-2 rounded-2xl bg-sky-50 p-3">
+                  <div v-for="(product, productIndex) in project.products" :key="productIndex" class="space-y-2 rounded-2xl bg-sky-50 p-3">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-black uppercase tracking-[0.12em] text-sky-600">Product</span>
+                      <button class="text-slate-400 hover:text-rose-600" title="Remove product" @click="project.products.splice(productIndex, 1)">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
                     <input v-model="product.name" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm font-black" placeholder="product-name" />
                     <input v-model="product.displayName" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm" placeholder="Display name" />
                     <textarea v-model="product.description" rows="2" class="w-full resize-none rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm" placeholder="Description"></textarea>
@@ -346,7 +451,13 @@
                   <button class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white" @click="openAddModal('namedValue')">Add</button>
                 </div>
                 <div class="space-y-3">
-                  <div v-for="namedValue in project.namedValues" :key="namedValue.name" class="space-y-2 rounded-2xl bg-sky-50 p-3">
+                  <div v-for="(namedValue, namedValueIndex) in project.namedValues" :key="namedValueIndex" class="space-y-2 rounded-2xl bg-sky-50 p-3">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-black uppercase tracking-[0.12em] text-sky-600">Named Value</span>
+                      <button class="text-slate-400 hover:text-rose-600" title="Remove named value" @click="project.namedValues.splice(namedValueIndex, 1)">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
                     <input v-model="namedValue.name" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm font-black" placeholder="name" />
                     <input v-model="namedValue.displayName" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm" placeholder="Display name" />
                     <input v-model="namedValue.value" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm" placeholder="Value or Key Vault reference" />
@@ -358,13 +469,19 @@
                 </div>
               </section>
 
-              <section class="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-lg shadow-sky-100">
+              <section class="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-lg shadow-sky-100 xl:col-span-3">
                 <div class="mb-4 flex items-center justify-between">
                   <h3 class="text-xl font-black text-slate-950">Policy Fragments</h3>
                   <button class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white" @click="openAddModal('policyFragment')">Add</button>
                 </div>
-                <div class="space-y-3">
-                  <div v-for="fragment in project.policyFragments" :key="fragment.name" class="space-y-2 rounded-2xl bg-sky-50 p-3">
+                <div class="grid gap-3 xl:grid-cols-3">
+                  <div v-for="(fragment, fragmentIndex) in project.policyFragments" :key="fragmentIndex" class="space-y-2 rounded-2xl bg-sky-50 p-3">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-black uppercase tracking-[0.12em] text-sky-600">Fragment</span>
+                      <button class="text-slate-400 hover:text-rose-600" title="Remove fragment" @click="project.policyFragments.splice(fragmentIndex, 1)">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
                     <input v-model="fragment.name" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm font-black" placeholder="fragment-name" />
                     <input v-model="fragment.description" class="w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm" placeholder="Description" />
                     <textarea v-model="fragment.policyContent" rows="7" class="w-full resize-y rounded-xl border border-sky-100 bg-slate-950 px-3 py-2 font-mono text-xs text-sky-50"></textarea>
@@ -376,152 +493,99 @@
         </section>
       </main>
 
-      <div v-if="showSelectionModal" class="fixed inset-0 z-50 bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6">
-        <div class="mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-2xl shadow-slate-900/20">
-          <header class="border-b border-sky-100 bg-white px-5 py-4 sm:px-6">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <Teleport to="body">
+        <div v-if="showSelectionModal" class="operation-modal-backdrop" @click.self="cancelSelectionModal">
+          <div class="operation-modal" role="dialog" aria-modal="true" aria-labelledby="operation-modal-title">
+            <header class="operation-modal__header">
               <div>
-                <p class="text-xs font-black uppercase tracking-[0.35em] text-blue-500">API Selection</p>
-                <h2 class="mt-1 text-3xl font-black text-slate-950">Select APIs and operations</h2>
+                <p>Import scope</p>
+                <h2 id="operation-modal-title">Select operations</h2>
               </div>
-              <div class="flex flex-wrap gap-3">
-                <button class="rounded-2xl border border-sky-200 bg-white px-5 py-3 font-black text-blue-700 hover:bg-sky-50" @click="toggleAll(true)">
-                  Select All
-                </button>
-                <button class="rounded-2xl border border-sky-200 bg-white px-5 py-3 font-black text-blue-700 hover:bg-sky-50" @click="toggleAll(false)">
-                  Clear All
-                </button>
-                <button class="rounded-2xl border border-slate-200 bg-white px-5 py-3 font-black text-slate-700 hover:bg-slate-50" @click="cancelSelectionModal">
-                  Cancel
-                </button>
-                <button class="rounded-2xl bg-blue-600 px-6 py-3 font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700" @click="acceptSelectionModal">
-                  OK
+              <div class="operation-modal__header-summary">
+                <span><strong>{{ selectedOperationCount }}</strong> selected</span>
+                <button aria-label="Close" @click="cancelSelectionModal">
+                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 6l12 12M18 6 6 18" /></svg>
                 </button>
               </div>
-            </div>
-          </header>
+            </header>
 
-          <div class="grid min-h-0 flex-1 overflow-hidden grid-cols-1 lg:grid-cols-[20rem_minmax(0,1fr)]">
-            <aside class="border-b border-sky-100 bg-sky-50/70 p-4 lg:border-b-0 lg:border-r">
-              <div class="mb-3 grid grid-cols-3 gap-2">
-                <div class="rounded-2xl bg-white p-3 text-center">
-                  <div class="text-xl font-black text-blue-700">{{ discoveredApis.length }}</div>
-                  <div class="text-xs font-bold text-slate-500">APIs</div>
+            <div class="operation-modal__body">
+              <aside class="operation-api-rail">
+                <div class="operation-api-rail__summary">
+                  <span><strong>{{ selectedDiscoveryCount }}</strong>/{{ discoveredApis.length }} APIs</span>
+                  <span><strong>{{ selectedOperationCount }}</strong>/{{ totalOperationCount }} ops</span>
                 </div>
-                <div class="rounded-2xl bg-white p-3 text-center">
-                  <div class="text-xl font-black text-blue-700">{{ selectedDiscoveryCount }}</div>
-                  <div class="text-xs font-bold text-slate-500">Selected</div>
-                </div>
-                <div class="rounded-2xl bg-white p-3 text-center">
-                  <div class="text-xl font-black text-blue-700">{{ selectedOperationCount }}</div>
-                  <div class="text-xs font-bold text-slate-500">Ops</div>
-                </div>
-              </div>
-
-              <div class="max-h-[calc(100vh-18rem)] space-y-2 overflow-y-auto pr-1">
+                <p class="operation-api-rail__label">Contracts</p>
                 <button
                   v-for="api in discoveredApis"
                   :key="api.id"
-                  :class="[
-                    'w-full rounded-2xl border p-3 text-left transition',
-                    activeSelectionApiId === api.id ? 'border-blue-300 bg-white shadow-md shadow-sky-100' : 'border-sky-100 bg-white/70 hover:bg-white'
-                  ]"
+                  :class="['operation-api-item', { 'is-active': activeSelectionApiId === api.id }]"
                   @click="activeSelectionApiId = api.id"
                 >
-                  <div class="flex items-center justify-between gap-3">
-                    <span class="min-w-0 truncate text-sm font-black text-slate-950">{{ api.displayName }}</span>
-                    <span class="text-xs font-black text-blue-700">{{ selectedApiOperations(api).length }}/{{ api.operations.length }}</span>
-                  </div>
-                  <div class="mt-2 truncate text-xs font-semibold text-slate-500">{{ api.sourceName }}</div>
+                  <span class="operation-api-item__mark">{{ api.displayName.slice(0, 2).toUpperCase() }}</span>
+                  <span class="min-w-0 flex-1">
+                    <strong>{{ api.displayName }}</strong>
+                    <small>{{ selectedApiOperations(api).length }} of {{ api.operations.length }} selected</small>
+                  </span>
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" /></svg>
                 </button>
-              </div>
-            </aside>
+              </aside>
 
-            <section class="min-h-0 overflow-hidden p-5 sm:p-6">
-              <article v-if="activeSelectionApi" class="space-y-5">
-                <div class="rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-lg shadow-sky-100">
-                  <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div class="min-w-0">
-                      <div class="mb-3 flex flex-wrap items-center gap-2">
-                        <span class="rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white">{{ activeSelectionApi.format }}</span>
-                        <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-blue-700">{{ activeSelectionApi.version }}</span>
-                        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ activeSelectionApi.sourceName }}</span>
-                      </div>
-                      <h3 class="truncate text-3xl font-black text-slate-950">{{ activeSelectionApi.displayName }}</h3>
-                      <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-600">{{ activeSelectionApi.description || 'No description provided.' }}</p>
+              <section v-if="activeSelectionApi" class="operation-workspace">
+                <div class="operation-api-header">
+                  <div class="min-w-0 flex-1">
+                    <div class="operation-api-header__meta">
+                      <span>{{ activeSelectionApi.format }}</span><span>v{{ activeSelectionApi.version }}</span><span>{{ activeSelectionApi.path || '/' }}</span>
                     </div>
-                    <label class="relative inline-flex cursor-pointer items-center">
-                      <input v-model="activeSelectionApi.selected" type="checkbox" class="peer sr-only" @change="toggleApiSelection(activeSelectionApi)" />
-                      <span class="h-8 w-14 rounded-full bg-slate-200 after:absolute after:left-1 after:top-1 after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow after:transition peer-checked:bg-blue-600 peer-checked:after:translate-x-6"></span>
-                    </label>
+                    <h3>{{ activeSelectionApi.displayName }}</h3>
+                    <p>{{ activeSelectionApi.description || 'No description provided.' }}</p>
                   </div>
+                  <label class="sleek-switch" title="Include this API">
+                    <input v-model="activeSelectionApi.selected" type="checkbox" @change="toggleApiSelection(activeSelectionApi)" />
+                    <span></span>
+                  </label>
+                </div>
 
-                  <div class="mt-5 grid gap-3 sm:grid-cols-3">
-                    <div class="rounded-2xl bg-sky-50 p-3">
-                      <div class="text-xl font-black text-blue-700">{{ selectedApiOperations(activeSelectionApi).length }}/{{ activeSelectionApi.operations.length }}</div>
-                      <div class="text-xs font-semibold text-slate-500">Ops selected</div>
-                    </div>
-                    <div class="rounded-2xl bg-sky-50 p-3">
-                      <div class="truncate text-xl font-black text-blue-700">{{ activeSelectionApi.path || '/' }}</div>
-                      <div class="text-xs font-semibold text-slate-500">APIM path</div>
-                    </div>
-                    <div class="rounded-2xl bg-sky-50 p-3">
-                      <div class="text-xl font-black text-blue-700">{{ activeSelectionApi.schemaCount }}</div>
-                      <div class="text-xs font-semibold text-slate-500">Schemas</div>
-                    </div>
+                <div class="operation-toolbar">
+                  <div class="operation-search">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m21 21-4.35-4.35m2.35-5.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
+                    <input v-model="operationSearch" type="search" placeholder="Filter operations…" />
+                  </div>
+                  <div class="operation-toolbar__actions">
+                    <button @click="toggleApiOperations(activeSelectionApi, true)">Select all</button>
+                    <button @click="toggleApiOperations(activeSelectionApi, false)">Clear</button>
                   </div>
                 </div>
 
-                <div class="rounded-[1.75rem] border border-sky-100 bg-white p-4 shadow-lg shadow-sky-100">
-                  <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h4 class="text-xl font-black text-slate-950">Operations</h4>
-                    <div class="flex gap-2">
-                      <button class="rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-black text-blue-700 hover:bg-sky-50" @click="toggleApiOperations(activeSelectionApi, true)">
-                        Select all
-                      </button>
-                      <button class="rounded-xl border border-sky-200 bg-white px-3 py-2 text-xs font-black text-blue-700 hover:bg-sky-50" @click="toggleApiOperations(activeSelectionApi, false)">
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="max-h-[calc(100vh-31rem)] space-y-2 overflow-y-auto pr-1">
-                    <div
-                      v-for="operation in activeSelectionApi.operations"
-                      :key="operation.name"
-                      :class="[
-                        'grid items-center gap-3 rounded-2xl border px-3 py-3 md:grid-cols-[1.5rem_5rem_minmax(0,1.2fr)_minmax(0,1fr)]',
-                        operation.selected ? 'border-sky-100 bg-white' : 'border-slate-100 bg-slate-50 opacity-70'
-                      ]"
-                    >
-                      <input v-model="operation.selected" type="checkbox" class="h-4 w-4 rounded border-sky-300 text-blue-600 focus:ring-blue-500" @change="syncApiSelection(activeSelectionApi)" />
-                      <span :class="['rounded-xl px-2 py-1 text-center text-xs font-black', methodClass(operation.method)]">{{ operation.method }}</span>
-                      <span class="min-w-0 truncate text-sm font-black text-slate-800">{{ operation.urlTemplate }}</span>
-                      <span class="min-w-0 truncate text-xs font-semibold text-slate-500">{{ operation.displayName }}</span>
-                    </div>
-                  </div>
+                <div class="operation-list">
+                  <label
+                    v-for="operation in filteredActiveOperations"
+                    :key="operation.name"
+                    :class="['operation-row', { 'is-unselected': !operation.selected }]"
+                  >
+                    <input v-model="operation.selected" type="checkbox" @change="syncApiSelection(activeSelectionApi)" />
+                    <span :class="['operation-method', methodClass(operation.method)]">{{ operation.method }}</span>
+                    <span class="operation-path">{{ operation.urlTemplate }}</span>
+                    <span class="operation-name">{{ operation.displayName }}</span>
+                  </label>
+                  <div v-if="filteredActiveOperations.length === 0" class="operation-empty">No operations match “{{ operationSearch }}”.</div>
                 </div>
-              </article>
-            </section>
-          </div>
-
-          <footer class="border-t border-sky-100 bg-white px-5 py-4 shadow-[0_-12px_30px_rgba(14,165,233,0.08)] sm:px-6">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p class="text-sm font-semibold text-slate-600">
-                {{ selectedOperationCount }} operation{{ selectedOperationCount === 1 ? '' : 's' }} selected across {{ selectedDiscoveryCount }} API{{ selectedDiscoveryCount === 1 ? '' : 's' }}.
-              </p>
-              <div class="flex gap-3">
-                <button class="rounded-2xl border border-slate-200 bg-white px-6 py-3 font-black text-slate-700 hover:bg-slate-50" @click="cancelSelectionModal">
-                  Cancel
-                </button>
-                <button class="rounded-2xl bg-blue-600 px-8 py-3 font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700" @click="acceptSelectionModal">
-                  OK
-                </button>
-              </div>
+              </section>
             </div>
-          </footer>
+
+            <footer class="operation-modal__footer">
+              <p><strong>{{ selectedOperationCount }}</strong> operations across <strong>{{ selectedDiscoveryCount }}</strong> APIs will be imported.</p>
+              <div>
+                <button class="operation-cancel" @click="cancelSelectionModal">Cancel</button>
+                <button class="operation-apply" @click="acceptSelectionModal">
+                  Apply selection
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" /></svg>
+                </button>
+              </div>
+            </footer>
+          </div>
         </div>
-      </div>
+      </Teleport>
 
       <div v-if="artifactModalKind" class="fixed inset-0 z-[60] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
         <div class="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-2xl shadow-slate-900/20">
@@ -531,7 +595,59 @@
           </header>
 
           <div class="max-h-[calc(100vh-15rem)] overflow-y-auto px-6 py-5">
-            <div v-if="artifactModalKind === 'product'" class="grid gap-4">
+            <div v-if="artifactModalKind === 'api'" class="grid gap-4">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <label class="space-y-2">
+                  <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">APIM Name</span>
+                  <input v-model="apiDraft.name" class="w-full rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-black text-slate-950 outline-none ring-sky-300/30 focus:ring-4" placeholder="orders-api" />
+                </label>
+                <label class="space-y-2">
+                  <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Display Name</span>
+                  <input v-model="apiDraft.displayName" class="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none ring-sky-300/30 focus:ring-4" placeholder="Orders API" />
+                </label>
+              </div>
+              <label class="space-y-2">
+                <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">APIM Path</span>
+                <input v-model="apiDraft.path" class="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none ring-sky-300/30 focus:ring-4" placeholder="/orders/v1" />
+              </label>
+              <label class="space-y-2">
+                <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Backend Service URL</span>
+                <input v-model="apiDraft.serviceUrl" class="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none ring-sky-300/30 focus:ring-4" placeholder="https://orders.internal.example.com" />
+              </label>
+              <label class="space-y-2">
+                <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Description</span>
+                <textarea v-model="apiDraft.description" rows="3" class="w-full resize-none rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-700 outline-none ring-sky-300/30 focus:ring-4" placeholder="What this API does"></textarea>
+              </label>
+              <p class="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-xs font-semibold text-slate-600">
+                Operations can be added on the API card after saving. A backend entry is created automatically when a service URL is provided.
+              </p>
+            </div>
+
+            <div v-else-if="artifactModalKind === 'backend'" class="grid gap-4">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <label class="space-y-2">
+                  <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Name</span>
+                  <input v-model="backendDraft.name" class="w-full rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-black text-slate-950 outline-none ring-sky-300/30 focus:ring-4" placeholder="orders-backend" />
+                </label>
+                <label class="space-y-2">
+                  <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Title</span>
+                  <input v-model="backendDraft.title" class="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none ring-sky-300/30 focus:ring-4" placeholder="Orders backend" />
+                </label>
+              </div>
+              <label class="space-y-2">
+                <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">URL</span>
+                <input v-model="backendDraft.url" class="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none ring-sky-300/30 focus:ring-4" placeholder="https://orders.internal.example.com" />
+              </label>
+              <label class="space-y-2">
+                <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Protocol</span>
+                <select v-model="backendDraft.protocol" class="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-800 outline-none ring-sky-300/30 focus:ring-4">
+                  <option value="https">https</option>
+                  <option value="http">http</option>
+                </select>
+              </label>
+            </div>
+
+            <div v-else-if="artifactModalKind === 'product'" class="grid gap-4">
               <label class="space-y-2">
                 <span class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Product Name</span>
                 <input v-model="productDraft.name" class="w-full rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm font-black text-slate-950 outline-none ring-sky-300/30 focus:ring-4" placeholder="starter-product" />
@@ -616,9 +732,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { projectService } from '@/services/api'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS' | 'TRACE'
-type ArtifactModalKind = 'product' | 'namedValue' | 'policyFragment'
+type ArtifactModalKind = 'api' | 'backend' | 'product' | 'namedValue' | 'policyFragment'
 
 interface OperationDefinition {
   name: string
@@ -685,6 +802,7 @@ const builderMode = ref<'review' | 'builder'>('review')
 const discoveredApis = ref<DiscoveredApi[]>([])
 const showSelectionModal = ref(false)
 const activeSelectionApiId = ref('')
+const operationSearch = ref('')
 const selectionSnapshot = ref('')
 const artifactModalKind = ref<ArtifactModalKind | null>(null)
 const draftStatus = ref('Draft autosaves locally in this browser.')
@@ -700,6 +818,8 @@ const project = reactive({
   schemas: [] as any[]
 })
 
+const apiDraft = reactive(createApiDraft())
+const backendDraft = reactive(createBackendDraft())
 const productDraft = reactive(createProductDraft())
 const namedValueDraft = reactive(createNamedValueDraft())
 const fragmentDraft = reactive(createPolicyFragmentDraft())
@@ -710,19 +830,36 @@ const selectedDiscoveryCount = computed(() => discoveredApis.value.filter(api =>
 const selectedOperationCount = computed(() =>
   discoveredApis.value.reduce((count, api) => count + (api.selected ? selectedApiOperations(api).length : 0), 0)
 )
+const totalOperationCount = computed(() =>
+  discoveredApis.value.reduce((count, api) => count + api.operations.length, 0)
+)
+const selectedSchemaCount = computed(() =>
+  discoveredApis.value.reduce((count, api) => count + (api.selected ? api.schemaCount : 0), 0)
+)
+const selectionPercentage = computed(() =>
+  totalOperationCount.value === 0 ? 0 : Math.round((selectedOperationCount.value / totalOperationCount.value) * 100)
+)
 const activeSelectionApi = computed(() =>
   discoveredApis.value.find(api => api.id === activeSelectionApiId.value) ?? discoveredApis.value[0] ?? null
 )
-const discoverySummary = computed(() => {
-  const operations = discoveredApis.value.reduce((count, api) => count + api.operations.length, 0)
-  return `${discoveredApis.value.length} API candidate${discoveredApis.value.length === 1 ? '' : 's'} found with ${operations} operation${operations === 1 ? '' : 's'}. Keep adding swagger files, then approve only the APIs and operations that should be imported into APIM.`
+const filteredActiveOperations = computed(() => {
+  const query = operationSearch.value.trim().toLowerCase()
+  const operations = activeSelectionApi.value?.operations ?? []
+  if (!query) return operations
+  return operations.filter(operation =>
+    `${operation.method} ${operation.urlTemplate} ${operation.displayName}`.toLowerCase().includes(query)
+  )
 })
 const artifactModalEyebrow = computed(() => {
+  if (artifactModalKind.value === 'api') return 'APIM API'
+  if (artifactModalKind.value === 'backend') return 'APIM Backend'
   if (artifactModalKind.value === 'product') return 'APIM Product'
   if (artifactModalKind.value === 'namedValue') return 'APIM Named Value'
   return 'APIM Policy Fragment'
 })
 const artifactModalTitle = computed(() => {
+  if (artifactModalKind.value === 'api') return 'Add API manually'
+  if (artifactModalKind.value === 'backend') return 'Add backend'
   if (artifactModalKind.value === 'product') return 'Add product'
   if (artifactModalKind.value === 'namedValue') return 'Add named value'
   return 'Add policy fragment'
@@ -904,15 +1041,6 @@ function slugify(value: string) {
     .slice(0, 80) || 'api'
 }
 
-function toggleAll(selected: boolean) {
-  discoveredApis.value.forEach(api => {
-    api.selected = selected
-    api.operations.forEach(operation => {
-      operation.selected = selected
-    })
-  })
-}
-
 function openSelectionModal(apiId?: string) {
   selectionSnapshot.value = JSON.stringify(discoveredApis.value.map(api => ({
     id: api.id,
@@ -923,12 +1051,14 @@ function openSelectionModal(apiId?: string) {
     }))
   })))
   activeSelectionApiId.value = apiId || discoveredApis.value[0]?.id || ''
+  operationSearch.value = ''
   showSelectionModal.value = true
 }
 
 function acceptSelectionModal() {
   showSelectionModal.value = false
   selectionSnapshot.value = ''
+  operationSearch.value = ''
 }
 
 function cancelSelectionModal() {
@@ -953,6 +1083,7 @@ function cancelSelectionModal() {
 
   showSelectionModal.value = false
   selectionSnapshot.value = ''
+  operationSearch.value = ''
 }
 
 function toggleApiSelection(api: DiscoveredApi) {
@@ -970,6 +1101,24 @@ function toggleApiOperations(api: DiscoveredApi, selected: boolean) {
 
 function syncApiSelection(api: DiscoveredApi) {
   api.selected = api.operations.some(operation => operation.selected)
+}
+
+function removeApi(index: number) {
+  project.apis.splice(index, 1)
+  syncProjectArtifacts()
+}
+
+function addOperation(api: any) {
+  const operationNumber = api.operations.length + 1
+  api.operations.push({
+    name: `custom-operation-${Date.now()}-${operationNumber}`,
+    displayName: `New operation ${operationNumber}`,
+    method: 'GET',
+    urlTemplate: `/operation-${operationNumber}`,
+    description: '',
+    policy: '',
+    selected: true
+  })
 }
 
 function confirmImport() {
@@ -1044,6 +1193,38 @@ function resetImports() {
   parseError.value = ''
 }
 
+function startManually() {
+  parseError.value = ''
+  hasAnalyzed.value = true
+  builderMode.value = 'builder'
+  if (project.apis.length === 0) {
+    openAddModal('api')
+  }
+}
+
+function createApiDraft() {
+  const index = project?.apis?.length ? project.apis.length + 1 : 1
+
+  return {
+    name: `api-${index}`,
+    displayName: `API ${index}`,
+    path: '',
+    serviceUrl: '',
+    description: ''
+  }
+}
+
+function createBackendDraft() {
+  const index = project?.backends?.length ? project.backends.length + 1 : 1
+
+  return {
+    name: `backend-${index}`,
+    title: `Backend ${index}`,
+    url: '',
+    protocol: 'https'
+  }
+}
+
 function createProductDraft() {
   const index = project?.products?.length ? project.products.length + 1 : 1
 
@@ -1091,7 +1272,11 @@ function defaultPolicyFragment() {
 function openAddModal(kind: ArtifactModalKind) {
   artifactModalKind.value = kind
 
-  if (kind === 'product') {
+  if (kind === 'api') {
+    Object.assign(apiDraft, createApiDraft())
+  } else if (kind === 'backend') {
+    Object.assign(backendDraft, createBackendDraft())
+  } else if (kind === 'product') {
     Object.assign(productDraft, createProductDraft())
   } else if (kind === 'namedValue') {
     Object.assign(namedValueDraft, createNamedValueDraft())
@@ -1105,7 +1290,51 @@ function closeAddModal() {
 }
 
 function saveArtifact(closeAfterSave: boolean) {
-  if (artifactModalKind.value === 'product') {
+  if (artifactModalKind.value === 'api') {
+    const name = apiDraft.name.trim() || `api-${project.apis.length + 1}`
+    const displayName = apiDraft.displayName.trim() || name
+    const serviceUrl = apiDraft.serviceUrl.trim()
+
+    project.apis.push({
+      name,
+      displayName,
+      path: apiDraft.path.trim(),
+      description: apiDraft.description,
+      protocols: ['https'],
+      serviceUrl,
+      subscriptionKeyParameterName: 'Ocp-Apim-Subscription-Key',
+      apiVersion: 'v1',
+      apiVersionSetId: `${name}-version-set`,
+      apiRevision: '1',
+      isCurrent: true,
+      subscriptionRequired: true,
+      policy: defaultApiPolicy(),
+      operations: [] as any[],
+      specificationFormat: 'openapi',
+      specificationContent: ''
+    })
+
+    if (serviceUrl) {
+      project.backends.push({
+        name: `${name}-backend`,
+        title: `${displayName} backend`,
+        url: serviceUrl,
+        protocol: serviceUrl.startsWith('https') ? 'https' : 'http',
+        properties: {}
+      })
+    }
+
+    if (!closeAfterSave) Object.assign(apiDraft, createApiDraft())
+  } else if (artifactModalKind.value === 'backend') {
+    project.backends.push({
+      ...backendDraft,
+      name: backendDraft.name.trim() || `backend-${project.backends.length + 1}`,
+      title: backendDraft.title.trim() || backendDraft.name.trim() || `Backend ${project.backends.length + 1}`,
+      properties: {}
+    })
+
+    if (!closeAfterSave) Object.assign(backendDraft, createBackendDraft())
+  } else if (artifactModalKind.value === 'product') {
     const product = {
       ...productDraft,
       name: productDraft.name.trim() || `product-${project.products.length + 1}`,
@@ -1169,6 +1398,39 @@ function saveDraft() {
   } catch {
     draftStatus.value = 'Draft is too large for localStorage. Generate the package or use fewer embedded specs.'
   }
+}
+
+function clearDraft() {
+  if (typeof window === 'undefined') return
+  if (!confirm('Remove the locally saved draft and reset the builder?')) return
+
+  if (draftSaveTimer) {
+    window.clearTimeout(draftSaveTimer)
+    draftSaveTimer = undefined
+  }
+  window.localStorage.removeItem(DRAFT_STORAGE_KEY)
+
+  isRestoringDraft.value = true
+  projectName.value = 'My APIM Project'
+  projectDescription.value = 'Generated from a reviewed OpenAPI or Swagger contract.'
+  sourceName.value = ''
+  rawSpec.value = ''
+  parseError.value = ''
+  hasAnalyzed.value = false
+  builderMode.value = 'review'
+  discoveredApis.value = []
+  project.apis.splice(0)
+  project.backends.splice(0)
+  project.namedValues.splice(0)
+  project.policyFragments.splice(0)
+  project.products.splice(0)
+  project.schemas.splice(0)
+  draftStatus.value = 'Draft cleared. Autosave resumes when you make changes.'
+
+  // Release the guard after the deep watcher has flushed so the reset itself isn't re-saved
+  window.setTimeout(() => {
+    isRestoringDraft.value = false
+  }, 0)
 }
 
 function restoreDraft() {
@@ -1253,15 +1515,7 @@ async function generateProject() {
   }
 
   try {
-    const response = await fetch('http://localhost:5000/api/project/download', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(projectData)
-    })
-
-    if (!response.ok) throw new Error('Generation failed')
-
-    const blob = await response.blob()
+    const blob = await projectService.downloadProject(projectData)
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

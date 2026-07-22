@@ -60,6 +60,23 @@ export const fragmentService = {
 
   async deleteFragment(id: string): Promise<void> {
     await api.delete(`/fragments/${id}`)
+  },
+
+  async incrementUsage(id: string): Promise<PolicyFragment> {
+    const { data } = await api.post<PolicyFragment>(`/fragments/${id}/increment-usage`)
+    return data
+  }
+}
+
+export const projectService = {
+  async generateProject(project: unknown): Promise<Record<string, string>> {
+    const { data } = await api.post<Record<string, string>>('/project/generate', project)
+    return data
+  },
+
+  async downloadProject(project: unknown): Promise<Blob> {
+    const { data } = await api.post('/project/download', project, { responseType: 'blob' })
+    return data
   }
 }
 

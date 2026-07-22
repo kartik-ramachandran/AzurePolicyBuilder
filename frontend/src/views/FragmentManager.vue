@@ -55,6 +55,15 @@
               </svg>
             </button>
             <button
+              @click="editFragment(fragment)"
+              class="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded"
+              title="Edit"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
               @click="copyFragment(fragment)"
               class="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded"
               title="Copy"
@@ -106,6 +115,43 @@
         </div>
       </div>
     </div>
+
+    <!-- Create / Edit Fragment Modal -->
+    <div v-if="showEditorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-start mb-4">
+          <h3 class="text-2xl font-bold">{{ editingFragment ? 'Edit Fragment' : 'New Fragment' }}</h3>
+          <button @click="showEditorModal = false" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fragment Name</label>
+            <input v-model="fragmentForm.name" type="text" class="input" placeholder="My Policy Fragment" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea v-model="fragmentForm.description" class="input" rows="2" placeholder="Describe this fragment..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fragment XML</label>
+            <div class="border border-gray-300 rounded-lg overflow-hidden" style="height: 300px;">
+              <MonacoEditor v-model="fragmentForm.xml" language="xml" />
+            </div>
+          </div>
+          <div class="flex space-x-2">
+            <button @click="saveFragment" class="btn btn-primary flex-1">
+              {{ editingFragment ? 'Save Changes' : 'Create Fragment' }}
+            </button>
+            <button @click="showEditorModal = false" class="btn btn-secondary flex-1">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -119,13 +165,59 @@ import type { PolicyFragment } from '@/types/policy'
 const router = useRouter()
 const policyStore = usePolicyStore()
 const viewingFragment = ref<PolicyFragment | null>(null)
+const showEditorModal = ref(false)
+const editingFragment = ref<PolicyFragment | null>(null)
+const fragmentForm = ref({ name: '', description: '', xml: '' })
+
+const defaultFragmentXml = `<fragment>
+    <!-- Add policy statements here -->
+</fragment>`
 
 onMounted(async () => {
   await policyStore.loadFragments()
 })
 
 function createNew() {
-  router.push('/')
+  editingFragment.value = null
+  fragmentForm.value = { name: '', description: '', xml: defaultFragmentXml }
+  showEditorModal.value = true
+}
+
+function editFragment(fragment: PolicyFragment) {
+  editingFragment.value = fragment
+  fragmentForm.value = {
+    name: fragment.name,
+    description: fragment.description,
+    xml: fragment.xml
+  }
+  showEditorModal.value = true
+}
+
+async function saveFragment() {
+  if (!fragmentForm.value.name.trim()) {
+    alert('Please enter a fragment name')
+    return
+  }
+
+  try {
+    if (editingFragment.value) {
+      await policyStore.updateFragment(editingFragment.value.id, {
+        name: fragmentForm.value.name,
+        description: fragmentForm.value.description,
+        xml: fragmentForm.value.xml
+      })
+    } else {
+      await policyStore.createFragment({
+        name: fragmentForm.value.name,
+        description: fragmentForm.value.description,
+        xml: fragmentForm.value.xml,
+        version: 1
+      })
+    }
+    showEditorModal.value = false
+  } catch (e) {
+    alert('Failed to save fragment')
+  }
 }
 
 function viewFragment(fragment: PolicyFragment) {
@@ -139,7 +231,9 @@ function copyFragment(fragment: PolicyFragment) {
 
 function useFragmentInEditor(fragment: PolicyFragment) {
   policyStore.setCurrentPolicy(fragment.xml)
-  router.push('/')
+  policyStore.incrementFragmentUsage(fragment.id)
+  viewingFragment.value = null
+  router.push('/editor')
 }
 
 async function deleteFragment(id: string) {

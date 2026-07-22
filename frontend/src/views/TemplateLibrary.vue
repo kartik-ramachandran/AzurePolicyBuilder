@@ -146,7 +146,8 @@ function viewTemplate(template: PolicyTemplate) {
 
 function useTemplate(template: PolicyTemplate) {
   policyStore.setCurrentPolicy(template.xml)
-  router.push('/')
+  previewTemplate.value = null
+  router.push('/editor')
 }
 
 function copyTemplate(template: PolicyTemplate) {

@@ -25,13 +25,14 @@ Successfully integrated **all webapp features** into the Vue 3 APIM Policy Studi
 
 ## Application Structure
 
-### 6 Main Views
-1. **Policy Editor** (`/`) - Main APIM policy development
-2. **Template Library** (`/templates`) - 16+ policy templates
-3. **Fragment Manager** (`/fragments`) - Reusable components
-4. **API Builder** (`/api-builder`) - OpenAPI endpoint compiler ✨ NEW
-5. **API Documentation** (`/api-docs`) - Interactive docs ✨ NEW
-6. **API Tester** (`/api-tester`) - Postman-like client ✨ NEW
+### 7 Main Views
+1. **Project Builder** (`/`) - Import OpenAPI specs or compose manually, then generate APIM projects
+2. **Template Library** (`/templates`) - 16 policy templates
+3. **Policy Editor** (`/editor`) - Main APIM policy development
+4. **Fragment Manager** (`/fragments`) - Reusable components
+5. **API Builder** (`/api-builder`) - OpenAPI endpoint compiler ✨ NEW
+6. **API Documentation** (`/api-docs`) - Interactive docs ✨ NEW
+7. **API Tester** (`/api-tester`) - Postman-like client ✨ NEW
 
 ### Global Component
 - **AI Assistant** - Floating panel on all pages ✨ NEW
@@ -74,7 +75,7 @@ Open your browser to: **http://localhost:5173**
 ### 4️⃣ Test Each Feature
 
 #### Test Policy Management
-- ✅ Open Policy Editor (/)
+- ✅ Open Policy Editor (/editor)
 - ✅ Navigate to Templates (/templates)
 - ✅ Browse and select a template
 - ✅ Copy template to Policy Editor
@@ -83,7 +84,7 @@ Open your browser to: **http://localhost:5173**
 
 #### Test OpenAPI Tools
 - ✅ Navigate to API Builder (/api-builder)
-- ✅ Upload `webapp/data/sample-api.json` or use URL:
+- ✅ Upload `sample-api.json` (repo root) or use URL:
   ```
   https://petstore.swagger.io/v2/swagger.json
   ```

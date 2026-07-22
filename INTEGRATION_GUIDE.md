@@ -117,14 +117,15 @@ backend/
 
 ## Navigation
 
-The app now has 6 main sections accessible from the top navigation:
+The app now has 7 main sections accessible from the navigation:
 
-1. **Policy Editor** - Main policy development interface
-2. **Templates** - Browse and use policy templates
-3. **Fragments** - Manage reusable policy components
-4. **API Builder** - OpenAPI spec compiler
-5. **API Docs** - Documentation viewer
-6. **API Tester** - HTTP client
+1. **Project Builder** (`/`) - Import OpenAPI specs or compose manually (APIs, backends, named values, products, fragments), then generate APIM projects
+2. **Templates** (`/templates`) - Browse and use policy templates
+3. **Policy Editor** (`/editor`) - Main policy development interface
+4. **Fragments** (`/fragments`) - Manage reusable policy components
+5. **API Builder** (`/api-builder`) - OpenAPI spec compiler
+6. **API Docs** (`/api-docs`) - Documentation viewer
+7. **API Tester** (`/api-tester`) - HTTP client
 
 The **AI Assistant** floats in the bottom-right corner and is available on all pages.
 
@@ -158,13 +159,20 @@ The **AI Assistant** floats in the bottom-right corner and is available on all p
 **Backend runs on http://localhost:5000**
 
 - `GET /api/templates` - List all policy templates
-- `GET /api/templates/{category}` - Get templates by category
-- `POST /api/validation/policy` - Validate policy XML
-- `POST /api/validation/expression` - Validate C# expression
+- `GET /api/templates/{id}` - Get a specific template
+- `GET /api/templates/category/{category}` - Get templates by category
+- `POST /api/validate` - Validate policy XML (including C# expressions)
+- `POST /api/validate/expression` - Validate a C# expression
 - `GET /api/fragments` - List all fragments
+- `GET /api/fragments/{id}` - Get a specific fragment
 - `POST /api/fragments` - Create new fragment
+- `PUT /api/fragments/{id}` - Update a fragment
+- `DELETE /api/fragments/{id}` - Delete a fragment
+- `POST /api/fragments/{id}/increment-usage` - Track fragment usage
 - `POST /api/export/arm` - Generate ARM template
 - `POST /api/export/bicep` - Generate Bicep code
+- `POST /api/project/generate` - Generate APIM project file structure
+- `POST /api/project/download` - Download APIM project as ZIP
 
 ## Local Storage
 
@@ -194,6 +202,6 @@ Data never leaves your browser except for OpenAI API calls (if configured).
 
 You now have a complete APIM Policy Studio with integrated OpenAPI tools and AI assistance. All webapp features have been successfully converted to Vue components and seamlessly integrated into the existing application.
 
-**Total Components**: 9 views, 3 reusable components, 2 service layers  
-**Total Backend Services**: 4 services, 4 controllers, 20+ endpoints  
+**Total Components**: 7 views, 3 reusable components, 2 service layers  
+**Total Backend Services**: 5 services, 5 controllers, 15 endpoints  
 **Total Features**: Policy management + OpenAPI tools + AI assistance + HTTP testing

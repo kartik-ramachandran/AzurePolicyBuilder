@@ -73,6 +73,19 @@ export const usePolicyStore = defineStore('policy', () => {
     }
   }
 
+  async function updateFragment(id: string, changes: Partial<PolicyFragment>) {
+    try {
+      const updated = await fragmentService.updateFragment(id, changes)
+      const index = fragments.value.findIndex(f => f.id === id)
+      if (index !== -1) fragments.value[index] = updated
+      return updated
+    } catch (e) {
+      error.value = 'Failed to update fragment'
+      console.error(e)
+      throw e
+    }
+  }
+
   async function deleteFragment(id: string) {
     try {
       await fragmentService.deleteFragment(id)
@@ -81,6 +94,17 @@ export const usePolicyStore = defineStore('policy', () => {
       error.value = 'Failed to delete fragment'
       console.error(e)
       throw e
+    }
+  }
+
+  async function incrementFragmentUsage(id: string) {
+    try {
+      const updated = await fragmentService.incrementUsage(id)
+      const index = fragments.value.findIndex(f => f.id === id)
+      if (index !== -1) fragments.value[index] = updated
+    } catch (e) {
+      // Usage tracking is best-effort; don't surface an error to the user
+      console.error('Failed to increment fragment usage:', e)
     }
   }
 
@@ -104,7 +128,9 @@ export const usePolicyStore = defineStore('policy', () => {
     loadFragments,
     validatePolicy,
     createFragment,
+    updateFragment,
     deleteFragment,
+    incrementFragmentUsage,
     setCurrentPolicy
   }
 })
