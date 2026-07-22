@@ -1,162 +1,221 @@
+using System.Globalization;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using ApimPolicyStudio.Core.Models;
 
 namespace ApimPolicyStudio.Core.Services;
 
 public class PolicyFragmentService
 {
-    private readonly object _lock = new();
-    private readonly string _storePath;
-    private readonly List<PolicyFragment> _fragments;
-    private int _nextId = 1;
+    private readonly StudioDatabase _database;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = true
+        PropertyNameCaseInsensitive = true
     };
 
-    public PolicyFragmentService() : this(DefaultStorePath())
+    public PolicyFragmentService(StudioDatabase database, string? legacyJsonPath = null)
     {
-    }
-
-    public PolicyFragmentService(string storePath)
-    {
-        _storePath = storePath;
-        _fragments = LoadFragments();
-        if (_fragments.Count > 0)
+        _database = database;
+        if (!string.IsNullOrEmpty(legacyJsonPath))
         {
-            _nextId = _fragments.Max(f => int.TryParse(f.Id, out var n) ? n : 0) + 1;
+            MigrateLegacyJson(legacyJsonPath);
         }
     }
 
-    private static string DefaultStorePath()
-    {
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ApimPolicyStudio");
-        return Path.Combine(dir, "fragments.json");
-    }
-
-    private List<PolicyFragment> LoadFragments()
+    private void MigrateLegacyJson(string path)
     {
         try
         {
-            if (File.Exists(_storePath))
+            if (!File.Exists(path))
             {
-                var json = File.ReadAllText(_storePath);
-                return JsonSerializer.Deserialize<List<PolicyFragment>>(json, JsonOptions) ?? new List<PolicyFragment>();
+                return;
             }
+
+            using var connection = _database.Open();
+            using (var check = connection.CreateCommand())
+            {
+                check.CommandText = "SELECT COUNT(*) FROM Fragments";
+                if (Convert.ToInt64(check.ExecuteScalar()) > 0)
+                {
+                    return;
+                }
+            }
+
+            var fragments = JsonSerializer.Deserialize<List<PolicyFragment>>(File.ReadAllText(path), JsonOptions)
+                            ?? new List<PolicyFragment>();
+            foreach (var fragment in fragments)
+            {
+                using var insert = connection.CreateCommand();
+                insert.CommandText = @"
+INSERT INTO Fragments (Name, Description, Xml, Version, CreatedAt, UpdatedAt, UsageCount)
+VALUES (@name, @description, @xml, @version, @createdAt, @updatedAt, @usageCount)";
+                insert.Parameters.AddWithValue("@name", fragment.Name);
+                insert.Parameters.AddWithValue("@description", fragment.Description);
+                insert.Parameters.AddWithValue("@xml", fragment.Xml);
+                insert.Parameters.AddWithValue("@version", fragment.Version);
+                insert.Parameters.AddWithValue("@createdAt", fragment.CreatedAt.ToString("o"));
+                insert.Parameters.AddWithValue("@updatedAt", fragment.UpdatedAt.ToString("o"));
+                insert.Parameters.AddWithValue("@usageCount", fragment.UsageCount);
+                insert.ExecuteNonQuery();
+            }
+
+            File.Move(path, path + ".migrated", true);
         }
         catch (Exception)
         {
-            // A corrupt or unreadable store shouldn't take down the API — start empty
+            // Best-effort migration — never block startup on legacy data
         }
-        return new List<PolicyFragment>();
     }
 
-    private void SaveFragments()
+    private static PolicyFragment ReadFragment(SqliteDataReader reader)
     {
-        var dir = Path.GetDirectoryName(_storePath);
-        if (!string.IsNullOrEmpty(dir))
+        return new PolicyFragment
         {
-            Directory.CreateDirectory(dir);
-        }
-        File.WriteAllText(_storePath, JsonSerializer.Serialize(_fragments, JsonOptions));
+            Id = reader.GetInt64(0).ToString(),
+            Name = reader.GetString(1),
+            Description = reader.GetString(2),
+            Xml = reader.GetString(3),
+            Version = (int)reader.GetInt64(4),
+            CreatedAt = DateTime.Parse(reader.GetString(5), null, DateTimeStyles.RoundtripKind),
+            UpdatedAt = DateTime.Parse(reader.GetString(6), null, DateTimeStyles.RoundtripKind),
+            UsageCount = (int)reader.GetInt64(7)
+        };
     }
+
+    private const string SelectColumns = "Id, Name, Description, Xml, Version, CreatedAt, UpdatedAt, UsageCount";
 
     public Task<List<PolicyFragment>> GetAllFragmentsAsync()
     {
-        lock (_lock)
+        var fragments = new List<PolicyFragment>();
+        using var connection = _database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {SelectColumns} FROM Fragments ORDER BY Id";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
         {
-            return Task.FromResult(_fragments.ToList());
+            fragments.Add(ReadFragment(reader));
         }
+        return Task.FromResult(fragments);
     }
 
     public Task<PolicyFragment?> GetFragmentByIdAsync(string id)
     {
-        lock (_lock)
+        return Task.FromResult(FindById(id));
+    }
+
+    private PolicyFragment? FindById(string id)
+    {
+        if (!long.TryParse(id, out var rowId))
         {
-            return Task.FromResult(_fragments.FirstOrDefault(f => f.Id == id));
+            return null;
         }
+
+        using var connection = _database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {SelectColumns} FROM Fragments WHERE Id = @id";
+        command.Parameters.AddWithValue("@id", rowId);
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ReadFragment(reader) : null;
     }
 
     public Task<PolicyFragment> CreateFragmentAsync(CreateFragmentRequest request)
     {
-        lock (_lock)
-        {
-            var fragment = new PolicyFragment
-            {
-                Id = _nextId++.ToString(),
-                Name = request.Name,
-                Description = request.Description,
-                Xml = request.Xml,
-                Version = request.Version,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                UsageCount = 0
-            };
+        var now = DateTime.UtcNow;
+        using var connection = _database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO Fragments (Name, Description, Xml, Version, CreatedAt, UpdatedAt, UsageCount)
+VALUES (@name, @description, @xml, @version, @createdAt, @updatedAt, 0);
+SELECT last_insert_rowid();";
+        command.Parameters.AddWithValue("@name", request.Name);
+        command.Parameters.AddWithValue("@description", request.Description);
+        command.Parameters.AddWithValue("@xml", request.Xml);
+        command.Parameters.AddWithValue("@version", request.Version);
+        command.Parameters.AddWithValue("@createdAt", now.ToString("o"));
+        command.Parameters.AddWithValue("@updatedAt", now.ToString("o"));
+        var id = Convert.ToInt64(command.ExecuteScalar());
 
-            _fragments.Add(fragment);
-            SaveFragments();
-            return Task.FromResult(fragment);
-        }
+        return Task.FromResult(new PolicyFragment
+        {
+            Id = id.ToString(),
+            Name = request.Name,
+            Description = request.Description,
+            Xml = request.Xml,
+            Version = request.Version,
+            CreatedAt = now,
+            UpdatedAt = now,
+            UsageCount = 0
+        });
     }
 
     public Task<PolicyFragment?> UpdateFragmentAsync(string id, UpdateFragmentRequest request)
     {
-        lock (_lock)
+        var fragment = FindById(id);
+        if (fragment == null)
         {
-            var fragment = _fragments.FirstOrDefault(f => f.Id == id);
-            if (fragment == null)
-            {
-                return Task.FromResult<PolicyFragment?>(null);
-            }
-
-            if (request.Name != null) fragment.Name = request.Name;
-            if (request.Description != null) fragment.Description = request.Description;
-            if (request.Xml != null)
-            {
-                fragment.Xml = request.Xml;
-                fragment.Version++;
-            }
-            fragment.UpdatedAt = DateTime.UtcNow;
-
-            SaveFragments();
-            return Task.FromResult<PolicyFragment?>(fragment);
+            return Task.FromResult<PolicyFragment?>(null);
         }
+
+        if (request.Name != null) fragment.Name = request.Name;
+        if (request.Description != null) fragment.Description = request.Description;
+        if (request.Xml != null)
+        {
+            fragment.Xml = request.Xml;
+            fragment.Version++;
+        }
+        fragment.UpdatedAt = DateTime.UtcNow;
+
+        using var connection = _database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+UPDATE Fragments
+SET Name = @name, Description = @description, Xml = @xml, Version = @version, UpdatedAt = @updatedAt
+WHERE Id = @id";
+        command.Parameters.AddWithValue("@name", fragment.Name);
+        command.Parameters.AddWithValue("@description", fragment.Description);
+        command.Parameters.AddWithValue("@xml", fragment.Xml);
+        command.Parameters.AddWithValue("@version", fragment.Version);
+        command.Parameters.AddWithValue("@updatedAt", fragment.UpdatedAt.ToString("o"));
+        command.Parameters.AddWithValue("@id", long.Parse(id));
+        command.ExecuteNonQuery();
+
+        return Task.FromResult<PolicyFragment?>(fragment);
     }
 
     public Task<bool> DeleteFragmentAsync(string id)
     {
-        lock (_lock)
+        if (!long.TryParse(id, out var rowId))
         {
-            var fragment = _fragments.FirstOrDefault(f => f.Id == id);
-            if (fragment == null)
-            {
-                return Task.FromResult(false);
-            }
-
-            _fragments.Remove(fragment);
-            SaveFragments();
-            return Task.FromResult(true);
+            return Task.FromResult(false);
         }
+
+        using var connection = _database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Fragments WHERE Id = @id";
+        command.Parameters.AddWithValue("@id", rowId);
+        return Task.FromResult(command.ExecuteNonQuery() > 0);
     }
 
     public Task<PolicyFragment?> IncrementUsageAsync(string id)
     {
-        lock (_lock)
+        if (!long.TryParse(id, out var rowId))
         {
-            var fragment = _fragments.FirstOrDefault(f => f.Id == id);
-            if (fragment == null)
+            return Task.FromResult<PolicyFragment?>(null);
+        }
+
+        using var connection = _database.Open();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "UPDATE Fragments SET UsageCount = UsageCount + 1 WHERE Id = @id";
+            command.Parameters.AddWithValue("@id", rowId);
+            if (command.ExecuteNonQuery() == 0)
             {
                 return Task.FromResult<PolicyFragment?>(null);
             }
-
-            fragment.UsageCount++;
-            SaveFragments();
-            return Task.FromResult<PolicyFragment?>(fragment);
         }
+
+        return Task.FromResult(FindById(id));
     }
 }

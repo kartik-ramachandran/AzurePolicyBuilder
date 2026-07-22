@@ -80,6 +80,101 @@ export const projectService = {
   }
 }
 
+export interface LibraryProduct {
+  name: string
+  displayName: string
+  description: string
+  subscriptionRequired: boolean
+  approvalRequired: boolean
+  published: boolean
+  apis: string[]
+}
+
+export interface LibraryNamedValue {
+  name: string
+  displayName: string
+  value: string
+  secret: boolean
+  tags: string[]
+}
+
+export const libraryService = {
+  async getProducts(): Promise<LibraryProduct[]> {
+    const { data } = await api.get<LibraryProduct[]>('/library/products')
+    return data
+  },
+
+  async saveProduct(product: LibraryProduct): Promise<LibraryProduct> {
+    const { data } = await api.post<LibraryProduct>('/library/products', product)
+    return data
+  },
+
+  async deleteProduct(name: string): Promise<void> {
+    await api.delete(`/library/products/${encodeURIComponent(name)}`)
+  },
+
+  async getNamedValues(): Promise<LibraryNamedValue[]> {
+    const { data } = await api.get<LibraryNamedValue[]>('/library/named-values')
+    return data
+  },
+
+  async saveNamedValue(namedValue: LibraryNamedValue): Promise<LibraryNamedValue> {
+    const { data } = await api.post<LibraryNamedValue>('/library/named-values', namedValue)
+    return data
+  },
+
+  async deleteNamedValue(name: string): Promise<void> {
+    await api.delete(`/library/named-values/${encodeURIComponent(name)}`)
+  }
+}
+
+export interface AzureApimRequest {
+  subscriptionId: string
+  resourceGroup: string
+  serviceName: string
+  apiNames?: string[]
+}
+
+export interface ApimInventory {
+  serviceName: string
+  apis: Array<{ name: string; displayName: string; path: string }>
+  productCount: number
+  namedValueCount: number
+  policyFragmentCount: number
+  backendCount: number
+}
+
+export const importService = {
+  async importZip(file: File): Promise<any> {
+    const form = new FormData()
+    form.append('file', file)
+    const { data } = await api.post('/project/import/zip', form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return data
+  },
+
+  async importFolder(path: string): Promise<any> {
+    const { data } = await api.post('/project/import/folder', { path })
+    return data
+  },
+
+  async importGitHub(request: { repoUrl: string; branch?: string; path?: string; pat?: string }): Promise<any> {
+    const { data } = await api.post('/project/import/github', request)
+    return data
+  },
+
+  async azureInventory(request: AzureApimRequest): Promise<ApimInventory> {
+    const { data } = await api.post<ApimInventory>('/azure/apim/inventory', request)
+    return data
+  },
+
+  async azureImport(request: AzureApimRequest): Promise<any> {
+    const { data } = await api.post('/azure/apim/import', request)
+    return data
+  }
+}
+
 export const exportService = {
   async exportToArm(xml: string, scope: string): Promise<ArmTemplate> {
     const { data } = await api.post<ArmTemplate>('/export/arm', { xml, scope })

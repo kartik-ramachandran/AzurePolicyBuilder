@@ -206,7 +206,9 @@ public class ApimProjectGeneratorService
         }
 
         // Global policy.xml (if needed)
-        files["policy.xml"] = GenerateGlobalPolicy();
+        files["policy.xml"] = string.IsNullOrWhiteSpace(project.GlobalPolicy)
+            ? GenerateGlobalPolicy()
+            : project.GlobalPolicy;
 
         return files;
     }

@@ -11,6 +11,7 @@ public class ApimProject
     public List<Product> Products { get; set; } = new();
     public List<string> Tags { get; set; } = new();
     public List<Schema> Schemas { get; set; } = new();
+    public string? GlobalPolicy { get; set; }
 }
 
 public class ApiDefinition

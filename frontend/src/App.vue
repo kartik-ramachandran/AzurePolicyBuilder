@@ -159,7 +159,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
       { to: '/', label: 'Project Builder', icon: Squares2X2Icon },
       { to: '/templates', label: 'Templates', icon: ArchiveBoxIcon },
       { to: '/editor', label: 'Policy Editor', icon: CodeBracketIcon },
-      { to: '/fragments', label: 'Fragments', icon: PuzzlePieceIcon }
+      { to: '/library', label: 'Library', icon: PuzzlePieceIcon }
     ]
   },
   {

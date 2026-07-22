@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import ProjectBuilder from '@/views/ProjectBuilder.vue'
 import PolicyEditor from '@/views/PolicyEditor.vue'
 import TemplateLibrary from '@/views/TemplateLibrary.vue'
-import FragmentManager from '@/views/FragmentManager.vue'
+import Library from '@/views/Library.vue'
 import ApiBuilder from '@/views/ApiBuilder.vue'
 import ApiDocumentation from '@/views/ApiDocumentation.vue'
 import ApiTester from '@/views/ApiTester.vue'
@@ -26,9 +26,14 @@ const router = createRouter({
       component: TemplateLibrary
     },
     {
+      path: '/library',
+      name: 'library',
+      component: Library
+    },
+    {
+      // Preserve bookmarks to the former standalone fragment manager.
       path: '/fragments',
-      name: 'fragments',
-      component: FragmentManager
+      redirect: '/library'
     },
     {
       path: '/api-builder',
@@ -44,6 +49,11 @@ const router = createRouter({
       path: '/api-tester',
       name: 'api-tester',
       component: ApiTester
+    },
+    {
+      // Stale URLs (e.g. the removed /generator page) land on the Project Builder
+      path: '/:pathMatch(.*)*',
+      redirect: '/'
     }
   ]
 })

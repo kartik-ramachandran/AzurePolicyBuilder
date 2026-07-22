@@ -138,6 +138,16 @@
             <textarea v-model="fragmentForm.description" class="input" rows="2" placeholder="Describe this fragment..." />
           </div>
           <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start from policy template (optional)</label>
+            <select v-model="templateStartId" class="input" @change="applyTemplateToFragment(templateStartId)">
+              <option value="">— Write my own —</option>
+              <option v-for="template in policyStore.templates" :key="template.id" :value="template.id">
+                {{ template.name }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Wraps the template XML in a &lt;fragment&gt; so you can customize it</p>
+          </div>
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Fragment XML</label>
             <div class="border border-gray-300 rounded-lg overflow-hidden" style="height: 300px;">
               <MonacoEditor v-model="fragmentForm.xml" language="xml" />
@@ -173,24 +183,46 @@ const defaultFragmentXml = `<fragment>
     <!-- Add policy statements here -->
 </fragment>`
 
+const templateStartId = ref('')
+
 onMounted(async () => {
-  await policyStore.loadFragments()
+  await Promise.all([policyStore.loadFragments(), policyStore.loadTemplates()])
 })
 
 function createNew() {
   editingFragment.value = null
+  templateStartId.value = ''
   fragmentForm.value = { name: '', description: '', xml: defaultFragmentXml }
   showEditorModal.value = true
 }
 
 function editFragment(fragment: PolicyFragment) {
   editingFragment.value = fragment
+  templateStartId.value = ''
   fragmentForm.value = {
     name: fragment.name,
     description: fragment.description,
     xml: fragment.xml
   }
   showEditorModal.value = true
+}
+
+function applyTemplateToFragment(id: string) {
+  const template = policyStore.templates.find(t => t.id === id)
+  if (!template) return
+
+  const indented = template.xml
+    .split('\n')
+    .map(line => (line.trim().length ? `    ${line}` : line))
+    .join('\n')
+  fragmentForm.value.xml = `<fragment>\n${indented}\n</fragment>`
+
+  if (!fragmentForm.value.name.trim()) {
+    fragmentForm.value.name = `${template.id}-fragment`
+  }
+  if (!fragmentForm.value.description.trim()) {
+    fragmentForm.value.description = `Fragment wrapping the "${template.name}" template`
+  }
 }
 
 async function saveFragment() {

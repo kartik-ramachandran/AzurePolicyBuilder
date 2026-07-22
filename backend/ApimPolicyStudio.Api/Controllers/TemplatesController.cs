@@ -36,7 +36,7 @@ public class TemplatesController : ControllerBase
     [HttpGet("category/{category}")]
     public async Task<ActionResult<List<PolicyTemplate>>> GetTemplatesByCategory(string category)
     {
-        if (!Enum.TryParse<PolicyCategory>(category, true, out var categoryEnum))
+        if (!Enum.TryParse<PolicyCategory>(category.Replace("-", ""), true, out var categoryEnum))
         {
             return BadRequest("Invalid category");
         }
